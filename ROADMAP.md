@@ -4,6 +4,13 @@ Cross-device source of truth for what's built, what's next, and what's parked.
 
 ## Done
 
+- **Infrastructure rename** (September 2026) — GitHub repo renamed
+  `TSqu4red/clsa-learn-to-sail` → `TSqu4red/sailors-reference` (GitHub redirects
+  the old repo URL; Vercel tracks the repo by ID so deploys are unaffected).
+  Vercel project renamed to `sailors-reference` to match. The old
+  clsa-learn-to-sail.vercel.app domain MUST stay attached to the project — old
+  share links and the scorekeeper's browser-stored race days live under it.
+  Personal-site project card updated (name, description, new URL).
 - **New URL** (August 2026) — https://sailors-reference.vercel.app added as a
   second production domain on the same Vercel project. The old
   clsa-learn-to-sail.vercel.app stays live so existing share links, bookmarks,
