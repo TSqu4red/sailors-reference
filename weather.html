@@ -54,6 +54,9 @@
   .tie-note { font-size: 0.85rem; color: #889; font-style: italic; margin-top: 6px; }
   /* chart */
   .chart-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; align-items: baseline; margin-bottom: 8px; }
+  .seg { display: inline-flex; border: 1px solid #c5d8e8; border-radius: 8px; overflow: hidden; vertical-align: middle; }
+  .seg button { background: white; border: none; font-family: inherit; font-size: 0.85rem; padding: 5px 11px; cursor: pointer; color: var(--navy); }
+  .seg button.on { background: var(--navy); color: white; }
   .readout { font-size: 0.95rem; }
   .readout b { color: var(--navy); }
   .chart-box { overflow-x: auto; }
@@ -151,7 +154,7 @@
 </div>
 <div class="card" id="sec-wind">
   <div class="chart-head">
-    <h2>Wind, Next 72 Hours</h2>
+    <h2 id="chart-title">Wind, Next 72 Hours <span class="seg" id="span-seg"><button data-span="72" class="on">3 days</button><button data-span="168">7 days</button></span></h2>
     <div class="readout" id="readout"></div>
   </div>
   <div class="chart-box"><svg class="chart" id="chart" viewBox="0 0 760 300" role="img" aria-label="Hourly wind speed and gust forecast"></svg></div>
@@ -197,6 +200,8 @@
   const r = v => v == null || Number.isNaN(v) ? "--" : Math.round(v);
   let current = null;
   let hours = [];
+  let span = 72;          // chart range in hours: 72 or 168
+  let lastGrid = null;    // last grid payload, for re-render on span toggle
 
   /* ---------- saved places ---------- */
   function loadSaved() {
@@ -400,11 +405,13 @@
   }
 
   function drawChart(g) {
+    lastGrid = g;
+    const long = span > 96;
     const speed = expand(g.windSpeed), gust = expand(g.windGust), dir = expand(g.windDirection),
           pop = expand(g.probabilityOfPrecipitation), temp = expand(g.temperature);
     const start = Math.floor(Date.now() / 3600e3) * 3600e3;
     hours = [];
-    for (let i = 0; i < 72; i++) {
+    for (let i = 0; i < span; i++) {
       const t = start + i * 3600e3;
       if (!speed.has(t)) continue;
       hours.push({ t, s: speed.get(t) * KT, g: gust.has(t) && gust.get(t) != null ? gust.get(t) * KT : null, d: dir.get(t), p: pop.get(t), f: cToF(temp.get(t)) });
@@ -431,7 +438,7 @@
       if (d.getHours() === 0 || i === 0) {
         s += `<line x1="${x(i)}" x2="${x(i)}" y1="${T}" y2="${T + ph}" stroke="#9ab" stroke-width="${i === 0 ? 0 : 1}" stroke-dasharray="3 3"/>`;
         s += `<text x="${x(i) + 4}" y="${T + ph + 16}" font-size="12" font-weight="bold" font-family="Arial" fill="#445">${d.toLocaleDateString([], { weekday: "short" })}</text>`;
-      } else if (d.getHours() === 12) {
+      } else if (d.getHours() === 12 && !long) {
         s += `<text x="${x(i)}" y="${T + ph + 16}" font-size="11" font-family="Arial" text-anchor="middle" fill="#8aa">noon</text>`;
       }
     });
@@ -439,16 +446,16 @@
     if (gp.length > 1) s += `<polyline points="${gp.join(" ")}" fill="none" stroke="var(--gustc)" stroke-width="2" stroke-dasharray="4 3"/>`;
     s += `<path d="M${x(0)},${y(0)} L${hours.map((h, i) => `${x(i)},${y(h.s)}`).join(" L")} L${x(hours.length - 1)},${y(0)} Z" fill="var(--navy)" opacity=".12"/>`;
     s += `<polyline points="${hours.map((h, i) => `${x(i)},${y(h.s)}`).join(" ")}" fill="none" stroke="var(--navy)" stroke-width="2.5" stroke-linejoin="round"/>`;
-    const ay = T + ph + 34;
+    const ay = T + ph + 34, astep = long ? 6 : 3;
     hours.forEach((h, i) => {
-      if (i % 3 || h.d == null) return;
+      if (i % astep || h.d == null) return;
       s += `<g transform="translate(${x(i)},${ay}) rotate(${h.d + 180})"><path d="M0 -7 L4 6 L0 3 L-4 6 Z" fill="#445" opacity=".75"/></g>`;
     });
-    const py = T + ph + 46, pH = 22;
+    const py = T + ph + 46, pH = 22, bw = long ? 3 : 5;
     hours.forEach((h, i) => {
       if (!h.p) return;
       const bh = (h.p / 100) * pH;
-      s += `<rect x="${x(i) - 3}" y="${py + pH - bh}" width="5" height="${bh}" fill="var(--orange)" opacity=".7"/>`;
+      s += `<rect x="${x(i) - bw / 2}" y="${py + pH - bh}" width="${bw}" height="${bh}" fill="var(--orange)" opacity=".7"/>`;
     });
     s += `<text x="${L - 6}" y="${py + pH}" font-size="10" font-family="Arial" text-anchor="end" fill="#8aa">rain</text>`;
     s += `<line id="cursor" x1="${x(0)}" x2="${x(0)}" y1="${T}" y2="${T + ph}" stroke="var(--red)" stroke-width="1.5"/><circle id="dot" cx="${x(0)}" cy="${y(hours[0].s)}" r="4" fill="var(--red)"/>`;
@@ -470,6 +477,12 @@
     pick(0);
     $("chart-legend").style.display = "flex";
   }
+  document.querySelectorAll("#span-seg button").forEach(b => b.onclick = () => {
+    document.querySelectorAll("#span-seg button").forEach(x => x.classList.toggle("on", x === b));
+    span = +b.dataset.span;
+    $("chart-title").childNodes[0].textContent = span > 96 ? "Wind, Next 7 Days " : "Wind, Next 72 Hours ";
+    if (lastGrid) drawChart(lastGrid);
+  });
 
   function drawDays(periods) {
     $("days").innerHTML = periods.map(p => {
