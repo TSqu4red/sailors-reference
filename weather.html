@@ -633,12 +633,16 @@
     });
   }
 
+  /* NWS offices known to publish a recreational lakes forecast page (most don't) */
+  const OFFICE_LAKES_PAGES = { GSP: "https://www.weather.gov/gsp/lakes" };
   function drawLinks(office) {
     if (!current) { $("links").innerHTML = ""; return; }
     const lat = current.lat, lon = current.lon;
+    const lakesUrl = office && OFFICE_LAKES_PAGES[office];
     $("links").innerHTML = `
       <a href="https://forecast.weather.gov/MapClick.php?lat=${lat}&lon=${lon}" target="_blank" rel="noopener">Full NWS forecast page</a>
       <a href="https://forecast.weather.gov/MapClick.php?lat=${lat}&lon=${lon}&FcstType=graphical" target="_blank" rel="noopener">NWS hourly graph</a>
+      ${lakesUrl ? `<a href="${lakesUrl}" target="_blank" rel="noopener">Recreational lake forecasts &amp; map (${esc(office)})</a>` : ""}
       ${office ? `<a href="https://forecast.weather.gov/product.php?site=${esc(office)}&issuedby=${esc(office)}&product=AFD" target="_blank" rel="noopener">Forecaster discussion (${esc(office)})</a>` : ""}
       <a href="https://www.nhc.noaa.gov" target="_blank" rel="noopener">National Hurricane Center</a>`;
   }
