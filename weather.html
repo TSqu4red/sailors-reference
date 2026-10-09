@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A Sailor's Guide to the Galaxy — Regatta Weather</title>
+<style>
+  :root {
+    --navy: #1a3a5c; --navy-dark: #122a44; --blue: #2e6da4;
+    --sky: #e8f1f8; --sand: #f7f4ee; --red: #c0392b; --orange: #e67e22;
+    --yellow: #f1c40f; --green: #27ae60; --text: #2c3e50;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Georgia, 'Times New Roman', serif; background: var(--sand); color: var(--text); line-height: 1.5; }
+  header { background: linear-gradient(180deg, var(--navy) 0%, var(--navy-dark) 100%); color: white; padding: 22px 20px 16px; text-align: center; }
+  img.burgee { display: block; margin: 0 auto 8px; }
+  header h1 { font-size: 1.7rem; letter-spacing: 1px; }
+  header p { opacity: 0.85; font-style: italic; margin-top: 2px; }
+  header a { color: #cfdce8; font-size: 0.9rem; }
+  main { max-width: 1260px; margin: 0 auto; padding: 20px 14px 60px; }
+  h2 { color: var(--navy); margin-bottom: 6px; }
+  .card { background: white; border-radius: 10px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 18px; }
+  /* places + controls */
+  .wx-controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; align-items: center; }
+  .wx-controls input[type=text] { border: 1px solid #c5d8e8; border-radius: 8px; padding: 7px 10px; font-family: inherit; font-size: 0.95rem; width: 230px; }
+  .ghost-btn { background: white; color: var(--navy); border: 1px solid #c5d8e8; border-radius: 8px; font-family: inherit; font-size: 0.92rem; padding: 7px 12px; cursor: pointer; }
+  .ghost-btn:hover { background: var(--sky); }
+  .live-btn { background: var(--navy); color: white; border: none; border-radius: 8px; font-family: inherit; font-size: 0.95rem; padding: 8px 14px; cursor: pointer; }
+  .live-btn:hover { background: var(--blue); }
+  .chip { display: inline-flex; align-items: center; gap: 6px; background: var(--sky); border: 1px solid #c5d8e8; border-radius: 999px; padding: 5px 7px 5px 13px; font-size: 0.92rem; color: var(--navy); cursor: pointer; }
+  .chip.on { background: var(--navy); color: white; border-color: var(--navy); }
+  .chip .x { background: none; border: none; color: inherit; opacity: 0.55; cursor: pointer; font-size: 1rem; padding: 0 4px; font-family: inherit; }
+  .chip .x:hover { opacity: 1; }
+  .results { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+  .results button { text-align: left; background: var(--sky); border: 1px solid #c5d8e8; border-radius: 6px; font-family: inherit; font-size: 0.95rem; padding: 7px 12px; cursor: pointer; }
+  .results button:hover { background: #d6e6f2; }
+  /* current conditions */
+  .brief { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+  .wind-now { text-align: center; min-width: 190px; }
+  .wind-num { font-size: 2.2rem; color: var(--navy); font-weight: bold; line-height: 1.1; }
+  .wind-mph { font-size: 1.05rem; color: #667; }
+  .wind-sub { color: #667; }
+  .now-grid { flex: 1; min-width: 260px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .now-cell { background: var(--sky); border-radius: 8px; padding: 8px 12px; text-align: center; min-width: 96px; flex: 1; }
+  .now-cell .t { font-size: 0.8rem; color: #667; }
+  .now-cell .v { font-weight: bold; color: var(--navy); font-size: 1.05rem; }
+  .alert { border-left: 4px solid var(--orange); background: #fdf6e3; padding: 10px 14px; border-radius: 0 6px 6px 0; margin-top: 10px; }
+  .alert.sev { border-left-color: var(--red); background: #fdeeec; }
+  .alert b { color: var(--navy); }
+  .err { background: #fdeeec; border-left: 4px solid var(--red); padding: 10px 14px; border-radius: 0 6px 6px 0; }
+  .stale { background: #fdf6e3; border-left: 4px solid #f0c75e; padding: 10px 14px; border-radius: 0 6px 6px 0; margin-bottom: 12px; font-weight: bold; }
+  .muted { color: #889; }
+  .tie-note { font-size: 0.85rem; color: #889; font-style: italic; margin-top: 6px; }
+  /* chart */
+  #windchart { width: 100%; height: auto; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.88rem; color: #445; margin-top: 8px; align-items: center; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .swatch { display: inline-block; width: 18px; height: 4px; border-radius: 2px; }
+  /* 7-day */
+  table.days { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+  table.days th, table.days td { border: 1px solid #d7e3ee; padding: 6px 8px; text-align: left; }
+  table.days th { background: var(--sky); color: var(--navy); }
+  table.days td.tmp { font-weight: bold; color: var(--navy); white-space: nowrap; }
+  .score-wrap { overflow-x: auto; }
+  /* mobile app shell */
+  .appbar { display: none; align-items: center; gap: 10px; background: linear-gradient(180deg, var(--navy) 0%, var(--navy-dark) 100%); color: #fff; padding: 9px 12px; position: sticky; top: 0; z-index: 30; }
+  .appbar .menu { background: none; border: none; color: #fff; font-size: 22px; line-height: 1; cursor: pointer; padding: 2px 6px; }
+  .appbar .ab-burgee { height: 26px; }
+  .appbar .ab-title { font-size: 1.05rem; letter-spacing: .5px; }
+  .appbar .ab-home { display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; }
+  .scrim { position: fixed; inset: 0; background: rgba(0,0,0,.4); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 40; }
+  .scrim.open { opacity: 1; pointer-events: auto; }
+  .drawer { position: fixed; top: 0; left: 0; bottom: 0; width: 78%; max-width: 300px; background: linear-gradient(180deg, var(--navy) 0%, var(--navy-dark) 100%); color: #fff; z-index: 50; transform: translateX(-100%); transition: transform .22s ease; padding: 16px 14px; overflow-y: auto; }
+  .drawer.open { transform: none; }
+  .drawer .dh { display: flex; align-items: center; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,.15); }
+  .drawer .dh img { height: 30px; }
+  .drawer .dh b { font-size: 1.1rem; letter-spacing: .5px; }
+  .drawer .dsect { font-size: .72rem; letter-spacing: 1px; color: #9fb4cc; margin: 16px 0 4px; text-transform: uppercase; }
+  .drawer a { display: block; color: #e8eef5; text-decoration: none; padding: 10px 6px; border-bottom: 1px solid rgba(255,255,255,.07); font-size: 1rem; }
+  .drawer a.tool { color: #f0c75e; }
+  .drawer .close { position: absolute; top: 12px; right: 12px; background: none; border: none; color: #cfdce8; font-size: 22px; cursor: pointer; }
+  @media (max-width: 640px) {
+    header { display: none; }
+    .appbar { display: flex; }
+    main { padding-top: 14px; }
+  }
+  .legal { max-width: 1260px; margin: 0 auto; padding: 14px 16px 30px; border-top: 1px solid #ddd6c8; color: #99a; font-size: 0.78rem; line-height: 1.55; }
+</style>
+<script>window.clsaToggle=function(o){var d=document.getElementById("drawer"),s=document.getElementById("scrim");if(d&&s){d.classList.toggle("open",o);s.classList.toggle("open",o);}};</script>
+</head>
+<body>
+<div class="appbar">
+  <button class="menu" id="menuBtn" aria-label="Open menu" onclick="clsaToggle(true)"><svg viewBox="0 0 24 18" width="25" height="19" aria-hidden="true"><g fill="none" stroke="#e9e0cb" stroke-width="2.2" stroke-linecap="round"><path d="M2 3 q2 -1.6 4 0 t4 0 t4 0 t4 0"/><path d="M2 9 q2 -1.6 4 0 t4 0 t4 0 t4 0"/><path d="M2 15 q2 -1.6 4 0 t4 0 t4 0 t4 0"/></g></svg></button>
+  <a class="ab-home" href="index.html" aria-label="Home"><img class="ab-burgee" src="https://s3.amazonaws.com/ClubExpressClubFiles/294469/graphics/CowanLakeBurgee_260958746.gif" alt=""><span class="ab-title">Regatta Weather</span></a>
+</div>
+<div class="scrim" id="scrim" onclick="clsaToggle(false)"></div>
+<nav class="drawer" id="drawer" aria-label="Site menu">
+  <button class="close" id="drawerClose" aria-label="Close menu" onclick="clsaToggle(false)">&times;</button>
+  <div class="dh"><img src="https://s3.amazonaws.com/ClubExpressClubFiles/294469/graphics/CowanLakeBurgee_260958746.gif" alt=""><b>A Sailor's Guide to the Galaxy</b></div>
+  <div class="dsect">Tools</div>
+  <a class="tool" href="index.html">Home</a>
+  <a class="tool" href="learn.html">Sailing Basics</a>
+  <a class="tool" href="racecourse.html">Race Day</a>
+  <a class="tool" href="scoring.html">Race Scoring</a>
+  <a class="tool" href="weather.html">Regatta Weather</a>
+  <a class="tool" href="rigging.html">Fleet Rigging</a>
+  <div class="dsect">This page</div>
+  <a href="#sec-places" data-close>Venues</a>
+  <a href="#sec-now" data-close>Right Now</a>
+  <a href="#sec-wind" data-close>72-Hour Wind</a>
+  <a href="#sec-days" data-close>7-Day Forecast</a>
+  <div class="dsect">Club</div>
+  <a href="https://clsa.clubexpress.com" target="_blank">CLSA website &#8599;</a>
+</nav>
+<header>
+  <a href="https://clsa.clubexpress.com" title="Cowan Lake Sailing Association" target="_blank"><img class="burgee" height="56" src="https://s3.amazonaws.com/ClubExpressClubFiles/294469/graphics/CowanLakeBurgee_260958746.gif" alt="CLSA burgee"></a>
+  <h1>Regatta Weather</h1>
+  <p>Wind and weather for wherever the regatta is — any US venue</p>
+  <a href="index.html"><svg width="13" height="13" viewBox="0 0 30 30" fill="currentColor" style="vertical-align:-2px" aria-hidden="true"><path d="M15 3 C10 9 7 16 7 22 L15 22 Z"/><path d="M17 8 L17 22 L24 22 Z"/><path d="M4 24 L26 24 L23 28 L7 28 Z"/></svg> Home</a> &nbsp;&middot;&nbsp; <a href="racecourse.html">&larr; back to Race Day</a>
+</header>
+<main>
+<div class="card" id="sec-places">
+  <h2>Venues</h2>
+  <p>Traveling to a regatta? Search any US lake, town, or venue — forecasts come straight from the National Weather Service. Save the places you sail and they'll be here next time.</p>
+  <div class="wx-controls" id="chips"></div>
+  <div class="wx-controls">
+    <input type="text" id="q" placeholder="Search a lake or town&hellip;" aria-label="Search location">
+    <button class="live-btn" id="go">Search</button>
+    <button class="ghost-btn" id="save-place" style="display:none">+ Save this place</button>
+  </div>
+  <div class="results" id="results"></div>
+</div>
+<div id="stale-note" class="stale" style="display:none"></div>
+<div class="card" id="sec-now">
+  <h2 id="now-title">Right Now</h2>
+  <div id="now-body"><p class="muted">Pick a venue above.</p></div>
+  <div id="alerts"></div>
+</div>
+<div class="card" id="sec-wind">
+  <h2>Next 72 Hours — Wind</h2>
+  <div id="chart-wrap"><p class="muted">&hellip;</p></div>
+  <div class="legend" id="chart-legend" style="display:none">
+    <span><span class="swatch" style="background:#1a3a5c"></span> sustained wind (kn)</span>
+    <span><span class="swatch" style="background:#c0392b"></span> gusts (kn)</span>
+    <span>shaded bands = Beaufort force — the yellower it gets, the harder it blows</span>
+  </div>
+</div>
+<div class="card" id="sec-days">
+  <h2>7-Day Forecast</h2>
+  <div class="score-wrap" id="days-body"><p class="muted">&hellip;</p></div>
+  <p class="tie-note">Forecasts: National Weather Service (api.weather.gov) · search: Open-Meteo geocoding · times shown in the venue's local time. Always check conditions on the water — forecasts are guidance, not gospel.</p>
+</div>
+</main>
+<footer class="legal">A Sailor's Guide to the Galaxy is a volunteer-built reference provided as-is, without warranty of any kind. It is not sailing instruction and no certification is offered or implied. Sailing involves inherent risks; nothing here substitutes for proper training, judgment, or safety equipment. Race scoring tools are provided as a convenience — the Racing Rules of Sailing and your event's sailing instructions and race committee are always the final authority on results. Don't panic.</footer>
+<script>
+/* =====================================================================
+   REGATTA WEATHER — National Weather Service (api.weather.gov, no key)
+   + Open-Meteo geocoding for search. Saved venues in localStorage.
+   Live data is NEVER served from the service-worker cache (sw.js only
+   touches same-origin requests); if the network fails, the last good
+   fetch is shown from localStorage with a loud "stale" banner.
+   ===================================================================== */
+(function () {
+  const PKEY = 'clsa-weather-places';
+  const CKEY = 'clsa-weather-cache';
+  const DEFAULTS = [
+    { name: 'Cowan Lake, OH', lat: 39.385, lon: -83.905 },
+    { name: 'Hoover Reservoir, OH', lat: 40.13, lon: -82.88 },
+    { name: 'Lake Norman, NC', lat: 35.55, lon: -80.93 }
+  ];
+  let places = load(PKEY) || DEFAULTS.slice();
+  let current = null;        // {name, lat, lon}
+  let currentSaved = false;
+  const $ = id => document.getElementById(id);
+  function load(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
+  function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+  const KN_PER_KMH = 1 / 1.852;
+  const mph = kn => Math.round(kn * 1.15078);
+  function compass16(d) {
+    const n = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
+    return n[Math.round(d / 22.5) % 16];
+  }
+  /* ---------------- venues ---------------- */
+  function keyOf(p) { return p.lat.toFixed(3) + ',' + p.lon.toFixed(3); }
+  function renderChips() {
+    $('chips').innerHTML = places.map((p, i) =>
+      `<span class="chip${current && keyOf(p) === keyOf(current) ? ' on' : ''}" data-i="${i}">${esc(p.name)}<button class="x" data-x="${i}" title="Remove ${esc(p.name)}">&times;</button></span>`
+    ).join('');
+    currentSaved = !!(current && places.some(p => keyOf(p) === keyOf(current)));
+    $('save-place').style.display = current && !currentSaved ? '' : 'none';
+  }
+  $('chips').addEventListener('click', e => {
+    const x = e.target.dataset.x;
+    if (x !== undefined) {
+      if (!confirm(`Remove ${places[+x].name} from saved venues?`)) return;
+      places.splice(+x, 1);
+      save(PKEY, places);
+      renderChips();
+      return;
+    }
+    const chip = e.target.closest('.chip');
+    if (chip) loadPlace(places[+chip.dataset.i]);
+  });
+  $('save-place').onclick = () => {
+    if (!current || currentSaved) return;
+    places.push(current);
+    save(PKEY, places);
+    renderChips();
+  };
+  /* ---------------- search ---------------- */
+  async function doSearch() {
+    const q = $('q').value.trim();
+    if (!q) return;
+    $('results').innerHTML = '<p class="muted">Searching&hellip;</p>';
+    try {
+      const r = await fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(q) + '&count=8&language=en&format=json');
+      const d = await r.json();
+      const hits = (d.results || []).filter(x => x.country_code === 'US').slice(0, 6);
+      if (!hits.length) { $('results').innerHTML = '<p class="muted">No US match — NWS forecasts cover US locations only.</p>'; return; }
+      $('results').innerHTML = hits.map((x, i) =>
+        `<button data-r="${i}">${esc(x.name)}${x.admin1 ? ', ' + esc(x.admin1) : ''} <span class="muted">(${x.latitude.toFixed(2)}, ${x.longitude.toFixed(2)})</span></button>`
+      ).join('');
+      [...$('results').querySelectorAll('button')].forEach((b, i) => b.onclick = () => {
+        const x = hits[i];
+        $('results').innerHTML = '';
+        $('q').value = '';
+        loadPlace({ name: x.name + (x.admin1 ? ', ' + abbrevState(x.admin1) : ''), lat: +x.latitude.toFixed(3), lon: +x.longitude.toFixed(3) });
+      });
+    } catch (e) {
+      $('results').innerHTML = '<div class="err">Search is unreachable — check your connection.</div>';
+    }
+  }
+  const STATES = { Alabama:'AL',Alaska:'AK',Arizona:'AZ',Arkansas:'AR',California:'CA',Colorado:'CO',Connecticut:'CT',Delaware:'DE',Florida:'FL',Georgia:'GA',Hawaii:'HI',Idaho:'ID',Illinois:'IL',Indiana:'IN',Iowa:'IA',Kansas:'KS',Kentucky:'KY',Louisiana:'LA',Maine:'ME',Maryland:'MD',Massachusetts:'MA',Michigan:'MI',Minnesota:'MN',Mississippi:'MS',Missouri:'MO',Montana:'MT',Nebraska:'NE',Nevada:'NV','New Hampshire':'NH','New Jersey':'NJ','New Mexico':'NM','New York':'NY','North Carolina':'NC','North Dakota':'ND',Ohio:'OH',Oklahoma:'OK',Oregon:'OR',Pennsylvania:'PA','Rhode Island':'RI','South Carolina':'SC','South Dakota':'SD',Tennessee:'TN',Texas:'TX',Utah:'UT',Vermont:'VT',Virginia:'VA',Washington:'WA','West Virginia':'WV',Wisconsin:'WI',Wyoming:'WY' };
+  function abbrevState(s) { return STATES[s] || s; }
+  $('go').onclick = doSearch;
+  $('q').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+  /* ---------------- NWS fetch ---------------- */
+  async function nws(url) {
+    const r = await fetch(url, { headers: { 'Accept': 'application/geo+json' } });
+    if (!r.ok) throw new Error('NWS ' + r.status);
+    return r.json();
+  }
+  async function fetchAll(p) {
+    const pt = await nws(`https://api.weather.gov/points/${p.lat},${p.lon}`);
+    const props = pt.properties;
+    const tz = props.timeZone || undefined;
+    const [grid, daily, alerts] = await Promise.all([
+      nws(props.forecastGridData),
+      nws(props.forecast).catch(() => null),
+      nws(`https://api.weather.gov/alerts/active?point=${p.lat},${p.lon}`).catch(() => null)
+    ]);
+    let obs = null, stationName = '';
+    try {
+      const st = await nws(props.observationStations);
+      const first = st.features && st.features[0];
+      if (first) {
+        stationName = first.properties.name || first.properties.stationIdentifier;
+        obs = (await nws(first.id + '/observations/latest')).properties;
+      }
+    } catch (e) {}
+    return {
+      t: Date.now(), tz,
+      office: props.relativeLocation && props.relativeLocation.properties
+        ? props.relativeLocation.properties.city + ', ' + props.relativeLocation.properties.state : '',
+      stationName,
+      obs: obs && {
+        text: obs.textDescription || '',
+        tempC: val(obs.temperature), windKmh: val(obs.windSpeed),
+        gustKmh: val(obs.windGust), dir: val(obs.windDirection),
+        time: obs.timestamp
+      },
+      wind: expand(grid.properties.windSpeed), gust: expand(grid.properties.windGust),
+      daily: daily && daily.properties ? daily.properties.periods.slice(0, 14) : [],
+      alerts: alerts && alerts.features ? alerts.features.map(f => ({
+        event: f.properties.event, severity: f.properties.severity, headline: f.properties.headline
+      })) : []
+    };
+  }
+  function val(m) { return m && m.value != null ? m.value : null; }
+  /* expand NWS grid values ("ISO/PT3H" runs) into an hour→km/h map */
+  function expand(layer) {
+    const out = {};
+    if (!layer || !layer.values) return out;
+    for (const v of layer.values) {
+      const [startS, durS] = v.validTime.split('/');
+      const start = new Date(startS).getTime();
+      const m = /P(?:(\d+)D)?(?:T(?:(\d+)H)?)?/.exec(durS) || [];
+      const hours = (parseInt(m[1] || 0, 10) * 24) + parseInt(m[2] || 0, 10) || 1;
+      for (let h = 0; h < hours; h++) out[start + h * 3600000] = v.value;
+    }
+    return out;
+  }
+  /* ---------------- rendering ---------------- */
+  function fmtTime(iso, tz, opts) {
+    try { return new Date(iso).toLocaleString([], Object.assign({ timeZone: tz }, opts)); }
+    catch (e) { return new Date(iso).toLocaleString([], opts); }
+  }
+  function renderNow(p, d) {
+    $('now-title').textContent = 'Right Now — ' + p.name;
+    const o = d.obs;
+    if (!o || (o.tempC == null && o.windKmh == null)) {
+      $('now-body').innerHTML = `<p class="muted">No nearby station report${d.stationName ? ' from ' + esc(d.stationName) : ''} — see the wind chart and forecast below.</p>`;
+    } else {
+      const kn = o.windKmh != null ? Math.round(o.windKmh * KN_PER_KMH) : null;
+      const gkn = o.gustKmh != null ? Math.round(o.gustKmh * KN_PER_KMH) : null;
+      $('now-body').innerHTML = `<div class="brief">
+        <div class="wind-now">
+          <div class="wind-num">${kn != null ? kn + ' kn' : '–'}</div>
+          ${kn != null ? `<div class="wind-mph">${mph(kn)} mph</div>` : ''}
+          <div class="wind-sub">${gkn != null ? 'gusting ' + gkn + ' kn / ' + mph(gkn) + ' mph<br>' : ''}${o.dir != null ? 'from ' + compass16(o.dir) + ' (' + Math.round(o.dir) + '&deg;)' : 'direction n/a'}</div>
+        </div>
+        <div class="now-grid">
+          <div class="now-cell"><div class="t">Conditions</div><div class="v">${esc(o.text || '–')}</div></div>
+          <div class="now-cell"><div class="t">Temp</div><div class="v">${o.tempC != null ? Math.round(o.tempC * 9 / 5 + 32) + '&deg;F' : '–'}</div></div>
+          <div class="now-cell"><div class="t">Station</div><div class="v" style="font-size:0.9rem">${esc(d.stationName || '–')}</div></div>
+          <div class="now-cell"><div class="t">Observed</div><div class="v" style="font-size:0.9rem">${o.time ? fmtTime(o.time, d.tz, { hour: 'numeric', minute: '2-digit' }) : '–'}</div></div>
+        </div></div>`;
+    }
+    $('alerts').innerHTML = (d.alerts || []).map(a =>
+      `<div class="alert${a.severity === 'Severe' || a.severity === 'Extreme' ? ' sev' : ''}"><b>${esc(a.event)}</b> — ${esc(a.headline || '')}</div>`
+    ).join('');
+  }
+  function drawChart(d) {
+    const now = Date.now();
+    const start = now - (now % 3600000);
+    const pts = [];
+    for (let h = 0; h <= 72; h++) {
+      const t = start + h * 3600000;
+      const w = d.wind[t], g = d.gust[t];
+      pts.push({ t, w: w != null ? w * KN_PER_KMH : null, g: g != null ? g * KN_PER_KMH : null });
+    }
+    if (!pts.some(p => p.w != null)) { $('chart-wrap').innerHTML = '<p class="muted">No hourly wind data available for this spot.</p>'; return; }
+    const bands = [
+      [0, 1, '#f5f8fb'], [1, 3, '#ecf3f9'], [3, 6, '#e2edf6'], [6, 10, '#d6e6f2'],
+      [10, 16, '#f7f0cf'], [16, 21, '#f6e5b8'], [21, 27, '#f2d4a4'], [27, 33, '#eec191'], [33, 40, '#e8ab7e']
+    ];
+    const maxVal = Math.max(10, ...pts.map(p => Math.max(p.w || 0, p.g || 0)));
+    const bTop = bands.find(b => b[1] >= maxVal);
+    const yMax = bTop ? bTop[1] : Math.ceil(maxVal / 5) * 5;
+    const W = 920, H = 300, L = 40, R = 30, T = 12, B = 34;
+    const px = t => L + (t - start) / (72 * 3600000) * (W - L - R);
+    const py = v => T + (1 - v / yMax) * (H - T - B);
+    let s = '';
+    bands.forEach(([lo, hi, c], bi) => {
+      if (lo >= yMax) return;
+      const top = Math.min(hi, yMax);
+      s += `<rect x="${L}" y="${py(top)}" width="${W - L - R}" height="${py(lo) - py(top)}" fill="${c}"/>`;
+      s += `<text x="${W - R + 4}" y="${py((lo + top) / 2) + 4}" font-size="10" fill="#8aa" font-family="Arial">B${bi}</text>`;
+      s += `<text x="${L - 6}" y="${py(top) + 4}" font-size="10" fill="#667" font-family="Arial" text-anchor="end">${top}</text>`;
+    });
+    // day separators + labels (venue-local)
+    for (let h = 0; h <= 72; h++) {
+      const t = start + h * 3600000;
+      const hr = +fmtTime(new Date(t).toISOString(), d.tz, { hour: 'numeric', hour12: false }).replace(/\D/g, '');
+      if (hr === 0 && h > 0) s += `<line x1="${px(t)}" y1="${T}" x2="${px(t)}" y2="${H - B}" stroke="#b8c8d6" stroke-dasharray="3 4"/>`;
+      if (hr === 12) s += `<text x="${px(t)}" y="${H - B + 16}" font-size="11" fill="#556" font-family="Arial" text-anchor="middle">${fmtTime(new Date(t).toISOString(), d.tz, { weekday: 'short' })}</text>`;
+      if (hr === 6 || hr === 18) s += `<text x="${px(t)}" y="${H - B + 28}" font-size="9" fill="#9ab" font-family="Arial" text-anchor="middle">${hr === 6 ? '6a' : '6p'}</text>`;
+    }
+    const path = (key, color, dash) => {
+      let dStr = '', pen = false;
+      for (const p of pts) {
+        if (p[key] == null) { pen = false; continue; }
+        dStr += (pen ? ' L ' : ' M ') + px(p.t).toFixed(1) + ' ' + py(p[key]).toFixed(1);
+        pen = true;
+      }
+      return dStr ? `<path d="${dStr}" fill="none" stroke="${color}" stroke-width="2.2"${dash ? ' stroke-dasharray="5 4"' : ''}/>` : '';
+    };
+    s += path('g', '#c0392b', true) + path('w', '#1a3a5c', false);
+    s += `<line x1="${px(now)}" y1="${T}" x2="${px(now)}" y2="${H - B}" stroke="#27ae60" stroke-width="1.5"/>
+          <text x="${px(now) + 3}" y="${T + 10}" font-size="10" fill="#27ae60" font-family="Arial">now</text>`;
+    s += `<text x="${L - 28}" y="${(T + H - B) / 2}" font-size="11" fill="#667" font-family="Arial" transform="rotate(-90 ${L - 28} ${(T + H - B) / 2})" text-anchor="middle">knots</text>`;
+    $('chart-wrap').innerHTML = `<svg id="windchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="72 hour wind forecast chart">${s}</svg>`;
+    $('chart-legend').style.display = 'flex';
+  }
+  function renderDays(d) {
+    if (!d.daily.length) { $('days-body').innerHTML = '<p class="muted">No forecast periods available.</p>'; return; }
+    $('days-body').innerHTML = '<table class="days"><tr><th>Period</th><th>Temp</th><th>Wind</th><th>Forecast</th></tr>' +
+      d.daily.map(p =>
+        `<tr><td><b>${esc(p.name)}</b></td><td class="tmp">${p.temperature}&deg;${esc(p.temperatureUnit)}</td><td>${esc(p.windSpeed || '–')} ${esc(p.windDirection || '')}</td><td>${esc(p.shortForecast)}</td></tr>`
+      ).join('') + '</table>';
+  }
+  function renderAll(p, d, stale) {
+    const note = $('stale-note');
+    if (stale) {
+      note.style.display = '';
+      note.textContent = 'Offline or forecast service unreachable — showing data fetched ' +
+        fmtTime(new Date(d.t).toISOString(), d.tz, { weekday: 'short', hour: 'numeric', minute: '2-digit' }) +
+        '. Do NOT treat this as current conditions.';
+    } else note.style.display = 'none';
+    renderNow(p, d);
+    drawChart(d);
+    renderDays(d);
+  }
+  async function loadPlace(p) {
+    current = p;
+    renderChips();
+    $('now-title').textContent = 'Right Now — ' + p.name;
+    $('now-body').innerHTML = '<p class="muted">Fetching the latest from the National Weather Service&hellip;</p>';
+    $('alerts').innerHTML = '';
+    const cache = load(CKEY) || {};
+    try {
+      const d = await fetchAll(p);
+      cache[keyOf(p)] = d;
+      const keys = Object.keys(cache);
+      if (keys.length > 10) delete cache[keys.sort((a, b) => cache[a].t - cache[b].t)[0]];
+      save(CKEY, cache);
+      renderAll(p, d, false);
+    } catch (e) {
+      const d = cache[keyOf(p)];
+      if (d) renderAll(p, d, true);
+      else {
+        $('now-body').innerHTML = '<div class="err">Couldn\'t reach the National Weather Service for this spot, and there\'s no saved copy. Check your connection — or the venue may be outside NWS coverage (US only).</div>';
+        $('chart-wrap').innerHTML = '<p class="muted">&hellip;</p>';
+        $('days-body').innerHTML = '<p class="muted">&hellip;</p>';
+        $('chart-legend').style.display = 'none';
+      }
+    }
+  }
+  renderChips();
+  if (places.length) loadPlace(places[0]);
+})();
+</script>
+<script>
+(function () {
+  const drawer = document.getElementById('drawer');
+  const scrim = document.getElementById('scrim');
+  const open = () => { drawer.classList.add('open'); scrim.classList.add('open'); };
+  const close = () => { drawer.classList.remove('open'); scrim.classList.remove('open'); };
+  document.getElementById('menuBtn').addEventListener('click', open);
+  document.getElementById('drawerClose').addEventListener('click', close);
+  scrim.addEventListener('click', close);
+  drawer.querySelectorAll('a[data-close]').forEach(a => a.addEventListener('click', close));
+})();
+</script>
+<script>if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");</script>
+</body>
+</html>

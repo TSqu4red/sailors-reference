@@ -4,6 +4,16 @@ Cross-device source of truth for what's built, what's next, and what's parked.
 
 ## Done
 
+- **Regatta Weather page** (October 2026) — `weather.html`: wind and weather for
+  traveling regattas. Search any US venue (Open-Meteo geocoding), live station
+  conditions, active NWS alerts, a 72-hour wind chart in knots with Beaufort
+  bands and gusts, and the 7-day forecast — all from api.weather.gov, no API key,
+  no backend. Saved venues in `localStorage` (`clsa-weather-places`), defaults:
+  Cowan Lake OH, Hoover Reservoir OH, Lake Norman NC. Safety rule: live weather
+  is never served from the SW cache (sw.js only touches same-origin requests);
+  on network failure the last good fetch (`clsa-weather-cache`) is shown behind
+  a loud "stale — do not treat as current" banner. SW `VERSION` → `clsa-v6`.
+
 - **Infrastructure rename** (September 2026) — GitHub repo renamed
   `TSqu4red/clsa-learn-to-sail` → `TSqu4red/sailors-reference` (GitHub redirects
   the old repo URL; Vercel tracks the repo by ID so deploys are unaffected).
