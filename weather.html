@@ -154,13 +154,13 @@
 </div>
 <div class="card" id="sec-wind">
   <div class="chart-head">
-    <h2 id="chart-title">Wind, Next 72 Hours <span class="seg" id="span-seg"><button data-span="72" class="on">3 days</button><button data-span="168">7 days</button></span></h2>
+    <h2 id="chart-title">Wind, Next 72 Hours <span class="seg" id="span-seg"><button data-span="72" class="on">3 days</button><button data-span="168">7 days</button></span> <span class="seg" id="unit-seg"><button data-u="kn" class="on">kn</button><button data-u="mph">mph</button></span></h2>
     <div class="readout" id="readout"></div>
   </div>
   <div class="chart-box"><svg class="chart" id="chart" viewBox="0 0 760 300" role="img" aria-label="Hourly wind speed and gust forecast"></svg></div>
   <div class="legend" id="chart-legend" style="display:none">
-    <span><i style="background:var(--navy)"></i>sustained wind (kn)</span>
-    <span><i style="background:var(--gustc)"></i>gusts (kn)</span>
+    <span><i style="background:var(--navy)"></i><span id="leg-w">sustained wind (kn)</span></span>
+    <span><i style="background:var(--gustc)"></i><span id="leg-g">gusts (kn)</span></span>
     <span><i style="background:var(--orange);height:8px;width:8px"></i>chance of rain</span>
     <span>bands are Beaufort forces &middot; arrows point the way the wind blows &middot; touch or hover the chart to read any hour</span>
   </div>
@@ -201,7 +201,10 @@
   let current = null;
   let hours = [];
   let span = 72;          // chart range in hours: 72 or 168
-  let lastGrid = null;    // last grid payload, for re-render on span toggle
+  let lastGrid = null;    // last grid payload, for re-render on toggles
+  let lastSnap = null;    // last rendered snapshot, for re-render on unit toggle
+  let unit = "kn";        // display unit: "kn" or "mph"
+  try { if (localStorage.getItem("clsa-weather-unit") === "mph") unit = "mph"; } catch (e) {}
 
   /* ---------- saved places ---------- */
   function loadSaved() {
@@ -358,6 +361,7 @@
   }
 
   function render(snap, stale) {
+    lastSnap = snap;
     current = snap.place;
     drawChips();
     const note = $("stale-note");
@@ -397,9 +401,12 @@
     const ws = o.windSpeed, wg = o.windGust, wd = o.windDirection;
     const t = cToF(o.tempC);
     const age = Math.round((Date.now() - Date.parse(o.timestamp)) / 60000);
+    const alt = unit === "kn" ? "mph" : "kn";
+    const pri = v => v == null ? null : v * (unit === "kn" ? KT : MPH);
+    const sec = v => v == null ? null : v * (unit === "kn" ? MPH : KT);
     $("now").innerHTML = `
-      <div class="cell"><div class="lab">Wind</div><div class="big">${arrowSVG(wd)} ${r(ws == null ? null : ws * KT)} <span style="font-size:1rem">kn</span></div><div class="sub">${r(ws == null ? null : ws * MPH)} mph from ${compass(wd)}${wd != null ? ` (${r(wd)}&deg;)` : ""}</div></div>
-      <div class="cell"><div class="lab">Gusts</div><div class="big">${wg == null ? "--" : r(wg * KT)} <span style="font-size:1rem">kn</span></div><div class="sub">${wg == null ? "None reported" : r(wg * MPH) + " mph"}</div></div>
+      <div class="cell"><div class="lab">Wind</div><div class="big">${arrowSVG(wd)} ${r(pri(ws))} <span style="font-size:1rem">${unit}</span></div><div class="sub">${r(sec(ws))} ${alt} from ${compass(wd)}${wd != null ? ` (${r(wd)}&deg;)` : ""}</div></div>
+      <div class="cell"><div class="lab">Gusts</div><div class="big">${wg == null ? "--" : r(pri(wg))} <span style="font-size:1rem">${unit}</span></div><div class="sub">${wg == null ? "None reported" : r(sec(wg)) + " " + alt}</div></div>
       <div class="cell"><div class="lab">Air</div><div class="big">${r(t)}&deg;F</div><div class="sub">${esc(o.text || "")}</div></div>
       <div class="cell"><div class="lab">Station</div><div class="big" style="font-size:1.3rem">${esc(s ? s.id : "--")}</div><div class="sub">${esc(s ? s.name : "")} · ${age < 90 ? age + " min ago" : Math.round(age / 60) + " hr ago"}</div></div>`;
   }
@@ -418,21 +425,23 @@
     }
     const svg = $("chart");
     if (!hours.length) { svg.innerHTML = ""; $("chart-legend").style.display = "none"; return; }
+    const uf = unit === "mph" ? 1.15078 : 1;   // knots -> display unit
     const W = 760, H = 300, L = 40, R = 70, T = 14, B = 74;
     const pw = W - L - R, ph = H - T - B;
-    const maxV = Math.max(20, Math.ceil(Math.max(...hours.map(h => Math.max(h.s, h.g || 0))) / 5) * 5 + 2);
+    const maxV = Math.max(unit === "mph" ? 25 : 20, Math.ceil(Math.max(...hours.map(h => Math.max(h.s, h.g || 0))) * uf / 5) * 5 + 2);
     const x = i => L + (i / Math.max(1, hours.length - 1)) * pw;
     const y = v => T + ph - (v / maxV) * ph;
     const bands = [[0, 6.5, "F0–2 light air"], [6.5, 10.5, "F3 gentle"], [10.5, 16.5, "F4 moderate"], [16.5, 21.5, "F5 fresh"], [21.5, 27.5, "F6 strong"], [27.5, 99, "F7+ near gale"]];
     let s = "";
-    bands.forEach(([a, b, lab], i) => {
+    bands.forEach(([a0, b0, lab], i) => {
+      const a = a0 * uf, b = b0 * uf;
       if (a >= maxV) return;
       const top = y(Math.min(b, maxV)), bot = y(a);
       if (i % 2 === 1) s += `<rect x="${L}" y="${top}" width="${pw}" height="${bot - top}" fill="var(--band)"/>`;
       s += `<text x="${L + pw + 6}" y="${(top + bot) / 2 + 4}" font-size="11" font-family="Arial" fill="#8aa">${lab}</text>`;
     });
     for (let v = 0; v <= maxV; v += 5) s += `<line x1="${L}" x2="${L + pw}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${L - 6}" y="${y(v) + 4}" font-size="11" font-family="Arial" text-anchor="end" fill="#8aa">${v}</text>`;
-    s += `<text x="${L - 6}" y="${T - 2}" font-size="10" font-family="Arial" text-anchor="end" fill="#8aa">kn</text>`;
+    s += `<text x="${L - 6}" y="${T - 2}" font-size="10" font-family="Arial" text-anchor="end" fill="#8aa">${unit}</text>`;
     hours.forEach((h, i) => {
       const d = new Date(h.t);
       if (d.getHours() === 0 || i === 0) {
@@ -442,10 +451,10 @@
         s += `<text x="${x(i)}" y="${T + ph + 16}" font-size="11" font-family="Arial" text-anchor="middle" fill="#8aa">noon</text>`;
       }
     });
-    const gp = hours.map((h, i) => h.g == null ? null : `${x(i)},${y(h.g)}`).filter(Boolean);
+    const gp = hours.map((h, i) => h.g == null ? null : `${x(i)},${y(h.g * uf)}`).filter(Boolean);
     if (gp.length > 1) s += `<polyline points="${gp.join(" ")}" fill="none" stroke="var(--gustc)" stroke-width="2" stroke-dasharray="4 3"/>`;
-    s += `<path d="M${x(0)},${y(0)} L${hours.map((h, i) => `${x(i)},${y(h.s)}`).join(" L")} L${x(hours.length - 1)},${y(0)} Z" fill="var(--navy)" opacity=".12"/>`;
-    s += `<polyline points="${hours.map((h, i) => `${x(i)},${y(h.s)}`).join(" ")}" fill="none" stroke="var(--navy)" stroke-width="2.5" stroke-linejoin="round"/>`;
+    s += `<path d="M${x(0)},${y(0)} L${hours.map((h, i) => `${x(i)},${y(h.s * uf)}`).join(" L")} L${x(hours.length - 1)},${y(0)} Z" fill="var(--navy)" opacity=".12"/>`;
+    s += `<polyline points="${hours.map((h, i) => `${x(i)},${y(h.s * uf)}`).join(" ")}" fill="none" stroke="var(--navy)" stroke-width="2.5" stroke-linejoin="round"/>`;
     const ay = T + ph + 34, astep = long ? 6 : 3;
     hours.forEach((h, i) => {
       if (i % astep || h.d == null) return;
@@ -458,16 +467,18 @@
       s += `<rect x="${x(i) - bw / 2}" y="${py + pH - bh}" width="${bw}" height="${bh}" fill="var(--orange)" opacity=".7"/>`;
     });
     s += `<text x="${L - 6}" y="${py + pH}" font-size="10" font-family="Arial" text-anchor="end" fill="#8aa">rain</text>`;
-    s += `<line id="cursor" x1="${x(0)}" x2="${x(0)}" y1="${T}" y2="${T + ph}" stroke="var(--red)" stroke-width="1.5"/><circle id="dot" cx="${x(0)}" cy="${y(hours[0].s)}" r="4" fill="var(--red)"/>`;
+    s += `<line id="cursor" x1="${x(0)}" x2="${x(0)}" y1="${T}" y2="${T + ph}" stroke="var(--red)" stroke-width="1.5"/><circle id="dot" cx="${x(0)}" cy="${y(hours[0].s * uf)}" r="4" fill="var(--red)"/>`;
     s += `<rect id="hit" x="${L}" y="${T}" width="${pw}" height="${H - T}" fill="transparent"/>`;
     svg.innerHTML = s;
     const pick = i => {
       i = Math.max(0, Math.min(hours.length - 1, i));
       const h = hours[i];
       svg.querySelector("#cursor").setAttribute("x1", x(i)); svg.querySelector("#cursor").setAttribute("x2", x(i));
-      svg.querySelector("#dot").setAttribute("cx", x(i)); svg.querySelector("#dot").setAttribute("cy", y(h.s));
+      svg.querySelector("#dot").setAttribute("cx", x(i)); svg.querySelector("#dot").setAttribute("cy", y(h.s * uf));
       const when = new Date(h.t).toLocaleString([], { weekday: "short", hour: "numeric" });
-      $("readout").innerHTML = `<b>${esc(when)}</b> · ${r(h.s)} kn${h.g != null ? `, gusts ${r(h.g)}` : ""} from ${compass(h.d)} · ${r(h.s * 1.15078)} mph · ${r(h.f)}&deg;F · ${r(h.p || 0)}% rain`;
+      const alt = unit === "kn" ? "mph" : "kn";
+      const af = unit === "kn" ? 1.15078 : 1;   // knots -> alt unit
+      $("readout").innerHTML = `<b>${esc(when)}</b> · ${r(h.s * uf)} ${unit}${h.g != null ? `, gusts ${r(h.g * uf)}` : ""} from ${compass(h.d)} · ${r(h.s * af)} ${alt} · ${r(h.f)}&deg;F · ${r(h.p || 0)}% rain`;
     };
     svg.querySelector("#hit").addEventListener("pointermove", e => {
       const box = svg.getBoundingClientRect();
@@ -483,6 +494,19 @@
     $("chart-title").childNodes[0].textContent = span > 96 ? "Wind, Next 7 Days " : "Wind, Next 72 Hours ";
     if (lastGrid) drawChart(lastGrid);
   });
+  function applyUnit() {
+    document.querySelectorAll("#unit-seg button").forEach(x => x.classList.toggle("on", x.dataset.u === unit));
+    $("leg-w").textContent = `sustained wind (${unit})`;
+    $("leg-g").textContent = `gusts (${unit})`;
+  }
+  document.querySelectorAll("#unit-seg button").forEach(b => b.onclick = () => {
+    unit = b.dataset.u;
+    try { localStorage.setItem("clsa-weather-unit", unit); } catch (e) {}
+    applyUnit();
+    if (lastGrid) drawChart(lastGrid);
+    if (lastSnap) drawNow(lastSnap.obs, lastSnap.stn);
+  });
+  applyUnit();
 
   function drawDays(periods) {
     $("days").innerHTML = periods.map(p => {

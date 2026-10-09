@@ -10,7 +10,8 @@ Cross-device source of truth for what's built, what's next, and what's parked.
   location; live station conditions (nearest 3 stations tried), expandable NWS
   alerts, a touch/hover-scrubbable wind chart in knots with Beaufort bands,
   gusts, direction arrows and rain-chance bars (3-day default, 7-day toggle —
-  same horizon as the NWS lake forecast pages), 14 day-by-day cards with
+  same horizon as the NWS lake forecast pages — and a persisted kn/mph unit
+  toggle that also drives the readout and Right Now cells), 14 day-by-day cards with
   forecaster text, and deep links to NWS products — all from api.weather.gov,
   no API key, no backend. Saved venues + last view in `localStorage`
   (`clsa-weather-places`, `clsa-weather-last`), defaults: Cowan Lake OH, Hoover
