@@ -70,16 +70,20 @@
   svg.chart { display: block; width: 100%; min-width: 620px; height: auto; touch-action: pan-y; }
   .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 0.85rem; color: #445; margin-top: 8px; }
   .legend i { display: inline-block; width: 18px; height: 3px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
-  /* day cards */
-  .days { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin-top: 8px; }
-  .day { background: var(--sky); border: 1px solid #c5d8e8; border-radius: 8px; padding: 12px 14px; display: grid; gap: 6px; align-content: start; min-width: 0; }
-  .day .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-  .day .name { font-weight: bold; color: var(--navy); font-size: 1.05rem; }
-  .day .t { font-size: 1.4rem; font-weight: bold; color: var(--navy); }
-  .day .t small { font-size: 0.95rem; color: #667; font-weight: normal; }
-  .day .row { font-size: 0.9rem; display: flex; justify-content: space-between; gap: 8px; }
-  .day details { font-size: 0.88rem; color: #556; }
-  .day summary { cursor: pointer; color: var(--blue); }
+  /* day table */
+  .score-wrap { overflow-x: auto; }
+  table.days { border-collapse: collapse; width: 100%; font-size: 0.92rem; margin-top: 8px; }
+  table.days th, table.days td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top; }
+  table.days th { background: var(--sky); color: var(--navy); }
+  table.days tr.d-row { cursor: pointer; }
+  table.days tr.d-row:hover td { background: #f4f9fc; }
+  table.days td.per { font-weight: bold; color: var(--navy); }
+  table.days td.per .sf { display: block; font-weight: normal; color: #556; font-size: 0.86rem; }
+  table.days td.wind { white-space: nowrap; }
+  table.days td.per .car { display: inline-block; width: 1em; color: var(--blue); transition: transform .15s; }
+  table.days tr.open td.per .car { transform: rotate(90deg); }
+  table.days td.tmp { font-weight: bold; color: var(--navy); white-space: nowrap; }
+  table.days tr.d-detail td { color: #556; font-size: 0.88rem; background: #fbfcfd; }
   .links { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 0.92rem; }
   .links a { color: var(--blue); }
   /* mobile app shell */
@@ -179,7 +183,7 @@
 </div>
 <div class="card" id="sec-days">
   <h2>Day by Day</h2>
-  <div class="days" id="days"></div>
+  <div id="days"></div>
   <div class="links" id="links" style="margin-top:14px"></div>
   <p class="tie-note">Forecasts: National Weather Service (api.weather.gov) · search: Open-Meteo geocoding · times in your local time. Always check conditions on the water — forecasts are guidance, not gospel.</p>
 </div>
@@ -575,16 +579,24 @@
   applyUnit();
 
   function drawDays(periods) {
-    $("days").innerHTML = periods.map(p => {
+    const rows = periods.map((p, i) => {
       const pop = p.probabilityOfPrecipitation && p.probabilityOfPrecipitation.value;
-      return `<article class="day">
-        <div class="top"><span class="name">${esc(p.name)}</span><span class="t">${r(p.temperature)}<small>&deg;${esc(p.temperatureUnit)}</small></span></div>
-        <div>${esc(p.shortForecast)}</div>
-        <div class="row"><span class="muted">Wind</span><span>${esc(p.windDirection || "")} ${esc(p.windSpeed || "")}</span></div>
-        <div class="row"><span class="muted">Rain chance</span><span>${pop == null ? "0" : r(pop)}%</span></div>
-        <details><summary>NWS forecaster text</summary>${esc(p.detailedForecast)}</details>
-      </article>`;
+      const wind = String(p.windSpeed || "").replace(/ to /g, "–").replace(/ ?mph/, "");
+      return `<tr class="d-row" data-i="${i}" title="Tap for the full NWS forecaster text">
+          <td class="per"><span class="car">&#9656;</span>${esc(p.name)}<span class="sf">${esc(p.shortForecast)}</span></td>
+          <td class="tmp">${r(p.temperature)}&deg;${esc(p.temperatureUnit)}</td>
+          <td class="wind">${esc(p.windDirection || "")} ${esc(wind)}</td>
+          <td>${pop == null ? "0" : r(pop)}%</td>
+        </tr>
+        <tr class="d-detail" hidden><td colspan="4">${esc(p.detailedForecast)}</td></tr>`;
     }).join("");
+    $("days").innerHTML = `<div class="score-wrap"><table class="days">
+      <tr><th>Period</th><th>Temp</th><th>Wind mph</th><th>Rain</th></tr>${rows}</table></div>`;
+    $("days").querySelectorAll("tr.d-row").forEach(tr => tr.onclick = () => {
+      const det = tr.nextElementSibling;
+      det.hidden = !det.hidden;
+      tr.classList.toggle("open", !det.hidden);
+    });
   }
 
   function drawLinks(office) {
