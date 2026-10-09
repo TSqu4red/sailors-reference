@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A Sailor's Guide to the Galaxy — Regatta Weather</title>
+<style>
+  :root {
+    --navy: #1a3a5c; --navy-dark: #122a44; --blue: #2e6da4;
+    --sky: #e8f1f8; --sand: #f7f4ee; --red: #c0392b; --orange: #e67e22;
+    --yellow: #f1c40f; --green: #27ae60; --text: #2c3e50;
+    --line: #d7e3ee; --band: #edf4fa; --gustc: #7fa8c9;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Georgia, 'Times New Roman', serif; background: var(--sand); color: var(--text); line-height: 1.5; }
+  header { background: linear-gradient(180deg, var(--navy) 0%, var(--navy-dark) 100%); color: white; padding: 22px 20px 16px; text-align: center; }
+  img.burgee { display: block; margin: 0 auto 8px; }
+  header h1 { font-size: 1.7rem; letter-spacing: 1px; }
+  header p { opacity: 0.85; font-style: italic; margin-top: 2px; }
+  header a { color: #cfdce8; font-size: 0.9rem; }
+  main { max-width: 1260px; margin: 0 auto; padding: 20px 14px 60px; }
+  h2 { color: var(--navy); margin-bottom: 6px; }
+  .card { background: white; border-radius: 10px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 18px; }
+  /* search + venues */
+  .wx-controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; align-items: center; }
+  .wx-controls input[type=text] { flex: 1 1 240px; min-width: 0; border: 1px solid #c5d8e8; border-radius: 8px; padding: 8px 10px; font-family: inherit; font-size: 0.95rem; }
+  .ghost-btn { background: white; color: var(--navy); border: 1px solid #c5d8e8; border-radius: 8px; font-family: inherit; font-size: 0.92rem; padding: 7px 12px; cursor: pointer; }
+  .ghost-btn:hover { background: var(--sky); }
+  .live-btn { background: var(--navy); color: white; border: none; border-radius: 8px; font-family: inherit; font-size: 0.95rem; padding: 8px 14px; cursor: pointer; }
+  .live-btn:hover { background: var(--blue); }
+  .chip { display: inline-flex; align-items: center; gap: 2px; background: var(--sky); border: 1px solid #c5d8e8; border-radius: 999px; padding: 4px 6px 4px 13px; font-size: 0.92rem; color: var(--navy); cursor: pointer; }
+  .chip.on { background: var(--navy); color: white; border-color: var(--navy); }
+  .chip .x { background: none; border: none; color: inherit; opacity: 0.55; cursor: pointer; font-size: 1rem; padding: 0 5px; font-family: inherit; }
+  .chip .x:hover { opacity: 1; }
+  .results { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+  .results button { text-align: left; background: var(--sky); border: 1px solid #c5d8e8; border-radius: 6px; font-family: inherit; font-size: 0.95rem; padding: 7px 12px; cursor: pointer; }
+  .results button:hover { background: #d6e6f2; }
+  .status { font-size: 0.9rem; color: #889; font-style: italic; margin-top: 6px; }
+  /* right now */
+  .now { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-top: 8px; }
+  .cell { background: var(--sky); padding: 12px 14px; min-width: 0; }
+  .cell .lab { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: #667; }
+  .cell .big { font-size: 1.9rem; line-height: 1.15; color: var(--navy); font-weight: bold; }
+  .cell .sub { font-size: 0.86rem; color: #667; }
+  .arrow { display: inline-block; width: 1.1em; height: 1.1em; vertical-align: -0.12em; }
+  /* alerts */
+  .alert { border-left: 4px solid #f0c75e; background: #fdf6e3; padding: 10px 14px; border-radius: 0 6px 6px 0; margin-top: 10px; }
+  .alert.warning { border-left-color: var(--red); background: #fdeeec; }
+  .alert summary { cursor: pointer; font-weight: bold; color: var(--navy); }
+  .alert p { margin-top: 8px; white-space: pre-wrap; font-size: 0.9rem; max-width: 76ch; }
+  .err { background: #fdeeec; border-left: 4px solid var(--red); padding: 10px 14px; border-radius: 0 6px 6px 0; }
+  .stale { background: #fdf6e3; border-left: 4px solid #f0c75e; padding: 10px 14px; border-radius: 0 6px 6px 0; margin-bottom: 12px; font-weight: bold; }
+  .muted { color: #889; }
+  .tie-note { font-size: 0.85rem; color: #889; font-style: italic; margin-top: 6px; }
+  /* chart */
+  .chart-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; align-items: baseline; margin-bottom: 8px; }
+  .seg { display: inline-flex; border: 1px solid #c5d8e8; border-radius: 8px; overflow: hidden; vertical-align: middle; }
+  .seg button { background: white; border: none; font-family: inherit; font-size: 0.85rem; padding: 5px 11px; cursor: pointer; color: var(--navy); }
+  .seg button.on { background: var(--navy); color: white; }
+  .readout { font-size: 0.95rem; }
+  .readout b { color: var(--navy); }
+  .chart-box { overflow-x: auto; }
+  svg.chart { display: block; width: 100%; min-width: 620px; height: auto; touch-action: pan-y; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 0.85rem; color: #445; margin-top: 8px; }
+  .legend i { display: inline-block; width: 18px; height: 3px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
+  /* day cards */
+  .days { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin-top: 8px; }
+  .day { background: var(--sky); border: 1px solid #c5d8e8; border-radius: 8px; padding: 12px 14px; display: grid; gap: 6px; align-content: start; min-width: 0; }
+  .day .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .day .name { font-weight: bold; color: var(--navy); font-size: 1.05rem; }
+  .day .t { font-size: 1.4rem; font-weight: bold; color: var(--navy); }
+  .day .t small { font-size: 0.95rem; color: #667; font-weight: normal; }
+  .day .row { font-size: 0.9rem; display: flex; justify-content: space-between; gap: 8px; }
+  .day details { font-size: 0.88rem; color: #556; }
+  .day summary { cursor: pointer; color: var(--blue); }
+  .links { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 0.92rem; }
+  .links a { color: var(--blue); }
+  /* mobile app shell */
+  .appbar { display: none; align-items: center; gap: 10px; background: linear-gradient(180deg, var(--navy) 0%, var(--navy-dark) 100%); color: #fff; padding: 9px 12px; position: sticky; top: 0; z-index: 30; }
+  .appbar .menu { background: none; border: none; color: #fff; font-size: 22px; line-height: 1; cursor: pointer; padding: 2px 6px; }
+  .appbar .ab-burgee { height: 26px; }
+  .appbar .ab-title { font-size: 1.05rem; letter-spacing: .5px; }
+  .appbar .ab-home { display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; }
+  .scrim { position: fixed; inset: 0; background: rgba(0,0,0,.4); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 40; }
+  .scrim.open { opacity: 1; pointer-events: auto; }
+  .drawer { position: fixed; top: 0; left: 0; bottom: 0; width: 78%; max-width: 300px; background: linear-gradient(180deg, var(--navy) 0%, var(--navy-dark) 100%); color: #fff; z-index: 50; transform: translateX(-100%); transition: transform .22s ease; padding: 16px 14px; overflow-y: auto; }
+  .drawer.open { transform: none; }
+  .drawer .dh { display: flex; align-items: center; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,.15); }
+  .drawer .dh img { height: 30px; }
+  .drawer .dh b { font-size: 1.1rem; letter-spacing: .5px; }
+  .drawer .dsect { font-size: .72rem; letter-spacing: 1px; color: #9fb4cc; margin: 16px 0 4px; text-transform: uppercase; }
+  .drawer a { display: block; color: #e8eef5; text-decoration: none; padding: 10px 6px; border-bottom: 1px solid rgba(255,255,255,.07); font-size: 1rem; }
+  .drawer a.tool { color: #f0c75e; }
+  .drawer .close { position: absolute; top: 12px; right: 12px; background: none; border: none; color: #cfdce8; font-size: 22px; cursor: pointer; }
+  @media (max-width: 640px) {
+    header { display: none; }
+    .appbar { display: flex; }
+    main { padding-top: 14px; }
+  }
+  .legal { max-width: 1260px; margin: 0 auto; padding: 14px 16px 30px; border-top: 1px solid #ddd6c8; color: #99a; font-size: 0.78rem; line-height: 1.55; }
+</style>
+<script>window.clsaToggle=function(o){var d=document.getElementById("drawer"),s=document.getElementById("scrim");if(d&&s){d.classList.toggle("open",o);s.classList.toggle("open",o);}};</script>
+</head>
+<body>
+<div class="appbar">
+  <button class="menu" id="menuBtn" aria-label="Open menu" onclick="clsaToggle(true)"><svg viewBox="0 0 24 18" width="25" height="19" aria-hidden="true"><g fill="none" stroke="#e9e0cb" stroke-width="2.2" stroke-linecap="round"><path d="M2 3 q2 -1.6 4 0 t4 0 t4 0 t4 0"/><path d="M2 9 q2 -1.6 4 0 t4 0 t4 0 t4 0"/><path d="M2 15 q2 -1.6 4 0 t4 0 t4 0 t4 0"/></g></svg></button>
+  <a class="ab-home" href="index.html" aria-label="Home"><img class="ab-burgee" src="https://s3.amazonaws.com/ClubExpressClubFiles/294469/graphics/CowanLakeBurgee_260958746.gif" alt=""><span class="ab-title">Regatta Weather</span></a>
+</div>
+<div class="scrim" id="scrim" onclick="clsaToggle(false)"></div>
+<nav class="drawer" id="drawer" aria-label="Site menu">
+  <button class="close" id="drawerClose" aria-label="Close menu" onclick="clsaToggle(false)">&times;</button>
+  <div class="dh"><img src="https://s3.amazonaws.com/ClubExpressClubFiles/294469/graphics/CowanLakeBurgee_260958746.gif" alt=""><b>A Sailor's Guide to the Galaxy</b></div>
+  <div class="dsect">Tools</div>
+  <a class="tool" href="index.html">Home</a>
+  <a class="tool" href="learn.html">Sailing Basics</a>
+  <a class="tool" href="racecourse.html">Race Day</a>
+  <a class="tool" href="scoring.html">Race Scoring</a>
+  <a class="tool" href="weather.html">Regatta Weather</a>
+  <a class="tool" href="rigging.html">Fleet Rigging</a>
+  <div class="dsect">This page</div>
+  <a href="#sec-places" data-close>Venues</a>
+  <a href="#sec-now" data-close>Right Now</a>
+  <a href="#sec-wind" data-close>72-Hour Wind</a>
+  <a href="#sec-days" data-close>Day by Day</a>
+  <div class="dsect">Club</div>
+  <a href="https://clsa.clubexpress.com" target="_blank">CLSA website &#8599;</a>
+</nav>
+<header>
+  <a href="https://clsa.clubexpress.com" title="Cowan Lake Sailing Association" target="_blank"><img class="burgee" height="56" src="https://s3.amazonaws.com/ClubExpressClubFiles/294469/graphics/CowanLakeBurgee_260958746.gif" alt="CLSA burgee"></a>
+  <h1>Regatta Weather</h1>
+  <p>Wind and weather for wherever the regatta is — any US venue</p>
+  <a href="index.html"><svg width="13" height="13" viewBox="0 0 30 30" fill="currentColor" style="vertical-align:-2px" aria-hidden="true"><path d="M15 3 C10 9 7 16 7 22 L15 22 Z"/><path d="M17 8 L17 22 L24 22 Z"/><path d="M4 24 L26 24 L23 28 L7 28 Z"/></svg> Home</a> &nbsp;&middot;&nbsp; <a href="racecourse.html">&larr; back to Race Day</a>
+</header>
+<main>
+<div class="card" id="sec-places">
+  <h2>Venues</h2>
+  <p>Traveling to a regatta? Search any US lake or town — or type coordinates like <span class="muted">35.55, -80.93</span> — and forecasts come straight from the National Weather Service. Save the places you sail and they'll be here next time.</p>
+  <form id="search" class="wx-controls">
+    <input id="q" type="text" placeholder="Town, lake, or lat, lon&hellip;" autocomplete="off" aria-label="Search for a place">
+    <button class="live-btn" type="submit">Search</button>
+    <button class="ghost-btn" type="button" id="geo">Use my location</button>
+    <button class="ghost-btn" type="button" id="save" style="display:none">+ Save this place</button>
+  </form>
+  <div class="results" id="results"></div>
+  <div class="wx-controls" id="chips"></div>
+  <div class="status" id="status" aria-live="polite">Loading forecast&hellip;</div>
+</div>
+<div id="stale-note" class="stale" style="display:none"></div>
+<div class="card" id="sec-now">
+  <h2 id="now-title">Right Now</h2>
+  <p class="muted" id="place-meta" style="font-size:0.9rem"></p>
+  <div class="now" id="now"></div>
+  <div id="alerts"></div>
+</div>
+<div class="card" id="sec-wind">
+  <div class="chart-head">
+    <h2 id="chart-title">Wind, Next 72 Hours <span class="seg" id="span-seg"><button data-span="72" class="on">3 days</button><button data-span="168">7 days</button></span> <span class="seg" id="unit-seg"><button data-u="kn" class="on">kn</button><button data-u="mph">mph</button></span></h2>
+    <div class="readout" id="readout"></div>
+  </div>
+  <div class="chart-box"><svg class="chart" id="chart" viewBox="0 0 760 300" role="img" aria-label="Hourly wind speed and gust forecast"></svg></div>
+  <div class="legend" id="chart-legend" style="display:none">
+    <span><i style="background:var(--navy)"></i><span id="leg-w">sustained wind (kn)</span></span>
+    <span><i style="background:var(--gustc)"></i><span id="leg-g">gusts (kn)</span></span>
+    <span><i style="background:var(--orange);height:8px;width:8px"></i>chance of rain</span>
+    <span>bands are Beaufort forces &middot; arrows point the way the wind blows &middot; touch or hover the chart to read any hour</span>
+  </div>
+</div>
+<div class="card" id="sec-days">
+  <h2>Day by Day</h2>
+  <div class="days" id="days"></div>
+  <div class="links" id="links" style="margin-top:14px"></div>
+  <p class="tie-note">Forecasts: National Weather Service (api.weather.gov) · search: Open-Meteo geocoding · times in your local time. Always check conditions on the water — forecasts are guidance, not gospel.</p>
+</div>
+</main>
+<footer class="legal">A Sailor's Guide to the Galaxy is a volunteer-built reference provided as-is, without warranty of any kind. It is not sailing instruction and no certification is offered or implied. Sailing involves inherent risks; nothing here substitutes for proper training, judgment, or safety equipment. Race scoring tools are provided as a convenience — the Racing Rules of Sailing and your event's sailing instructions and race committee are always the final authority on results. Don't panic.</footer>
+<script>
+/* =====================================================================
+   REGATTA WEATHER — ported from the standalone Lake Wind Board build.
+   Data: api.weather.gov (NWS, no key) + Open-Meteo geocoding for search.
+   Saved venues + last view in localStorage. Live weather is NEVER served
+   from the service-worker cache (sw.js only touches same-origin
+   requests); if the network fails, the last good snapshot is shown from
+   localStorage behind a loud "stale" banner.
+   ===================================================================== */
+(() => {
+  const NWS = "https://api.weather.gov";
+  const KT = 1 / 1.852;          // km/h to knots
+  const MPH = 1 / 1.609344;      // km/h to mph
+  const DIRS = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
+  const PRESETS = [
+    { name: "Cowan Lake, OH", lat: 39.385, lon: -83.905 },
+    { name: "Hoover Reservoir, OH", lat: 40.13, lon: -82.88 },
+    { name: "Lake Norman, NC", lat: 35.55, lon: -80.93 }
+  ];
+  const PKEY = "clsa-weather-places", LKEY = "clsa-weather-last", CKEY = "clsa-weather-cache";
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const compass = d => d == null ? "--" : DIRS[Math.round(((d % 360) / 22.5)) % 16];
+  const cToF = c => c == null ? null : c * 9 / 5 + 32;
+  const r = v => v == null || Number.isNaN(v) ? "--" : Math.round(v);
+  let current = null;
+  let hours = [];
+  let span = 72;          // chart range in hours: 72 or 168
+  let lastGrid = null;    // last grid payload, for re-render on toggles
+  let lastSnap = null;    // last rendered snapshot, for re-render on unit toggle
+  let unit = "kn";        // display unit: "kn" or "mph"
+  try { if (localStorage.getItem("clsa-weather-unit") === "mph") unit = "mph"; } catch (e) {}
+
+  /* ---------- saved places ---------- */
+  function loadSaved() {
+    try { const s = JSON.parse(localStorage.getItem(PKEY)); if (Array.isArray(s) && s.length) return s; } catch (e) {}
+    return PRESETS.slice();
+  }
+  function storeSaved(list) { try { localStorage.setItem(PKEY, JSON.stringify(list)); } catch (e) {} }
+  let saved = loadSaved();
+  function drawChips() {
+    $("chips").innerHTML = "";
+    saved.forEach((p, i) => {
+      const on = current && Math.abs(current.lat - p.lat) < 1e-3 && Math.abs(current.lon - p.lon) < 1e-3;
+      const c = document.createElement("span");
+      c.className = "chip" + (on ? " on" : "");
+      c.innerHTML = `<span>${esc(p.name)}</span><button type="button" class="x" aria-label="Remove ${esc(p.name)}">&times;</button>`;
+      c.children[0].onclick = () => go(p);
+      c.children[1].onclick = e => { e.stopPropagation(); saved.splice(i, 1); storeSaved(saved); drawChips(); };
+      $("chips").appendChild(c);
+    });
+    const isSaved = current && saved.some(p => Math.abs(p.lat - current.lat) < 1e-3 && Math.abs(p.lon - current.lon) < 1e-3);
+    $("save").style.display = current && !isSaved ? "" : "none";
+  }
+
+  /* ---------- fetch helpers ---------- */
+  async function getJSON(url) {
+    const res = await fetch(url, { headers: { Accept: "application/geo+json" } });
+    if (!res.ok) { const e = new Error("HTTP " + res.status); e.status = res.status; throw e; }
+    return res.json();
+  }
+  function durHours(d) {
+    const m = /P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?)?/.exec(d || "");
+    const h = (+(m && m[1]) || 0) * 24 + (+(m && m[2]) || 0);
+    return h || 1;
+  }
+  function expand(series) {
+    const map = new Map();
+    if (!series || !series.values) return map;
+    for (const v of series.values) {
+      const [t, d] = v.validTime.split("/");
+      const t0 = Date.parse(t), n = durHours(d);
+      for (let i = 0; i < n; i++) map.set(t0 + i * 3600e3, v.value);
+    }
+    return map;
+  }
+
+  /* ---------- search ---------- */
+  $("search").addEventListener("submit", async e => {
+    e.preventDefault();
+    const q = $("q").value.trim();
+    $("results").innerHTML = "";
+    if (!q) return;
+    const ll = /^\s*(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)\s*$/.exec(q);
+    if (ll) return go({ name: `${(+ll[1]).toFixed(3)}, ${(+ll[2]).toFixed(3)}`, lat: +ll[1], lon: +ll[2] });
+    try {
+      const term = q.split(",")[0].trim();
+      const data = await getJSON(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(term)}&count=8&language=en&format=json&countryCode=US`);
+      let list = data.results || [];
+      const rest = q.split(",").slice(1).join(" ").trim().toLowerCase();
+      if (rest) { const f = list.filter(p => (p.admin1 || "").toLowerCase().startsWith(rest) || (p.admin1_code || "").toLowerCase() === rest); if (f.length) list = f; }
+      if (!list.length) { $("results").innerHTML = `<p class="err">No US place matched "${esc(q)}". Try a nearby town, or type coordinates like 35.55, -80.93.</p>`; return; }
+      list.forEach(p => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = `${p.name}${p.admin2 ? ", " + p.admin2 + " County" : ""}, ${p.admin1 || ""}`;
+        b.onclick = () => { $("results").innerHTML = ""; $("q").value = ""; go({ name: `${p.name}, ${p.admin1_code || p.admin1 || ""}`.replace(/, $/, ""), lat: p.latitude, lon: p.longitude }); };
+        $("results").appendChild(b);
+      });
+    } catch (err) {
+      $("results").innerHTML = `<p class="err">Place search failed (${esc(err.message)}). You can still type coordinates like 35.55, -80.93.</p>`;
+    }
+  });
+  $("geo").onclick = () => {
+    if (!navigator.geolocation) { $("status").innerHTML = `<span style="color:var(--red)">This browser does not share location. Search for a place instead.</span>`; return; }
+    navigator.geolocation.getCurrentPosition(
+      p => go({ name: "My location", lat: p.coords.latitude, lon: p.coords.longitude }),
+      () => { $("status").innerHTML = `<span style="color:var(--red)">Location was not shared. Search for a place instead.</span>`; }
+    );
+  };
+  $("save").onclick = () => {
+    if (!current) return;
+    if (!saved.some(p => Math.abs(p.lat - current.lat) < 1e-3 && Math.abs(p.lon - current.lon) < 1e-3)) {
+      saved.push({ name: current.name, lat: current.lat, lon: current.lon });
+      storeSaved(saved);
+    }
+    drawChips();
+  };
+
+  /* ---------- offline snapshot cache ---------- */
+  function cacheKey(p) { return p.lat.toFixed(3) + "," + p.lon.toFixed(3); }
+  function loadCache() { try { return JSON.parse(localStorage.getItem(CKEY)) || {}; } catch (e) { return {}; } }
+  function storeSnap(p, snap) {
+    const c = loadCache();
+    c[cacheKey(p)] = snap;
+    const keys = Object.keys(c);
+    if (keys.length > 8) delete c[keys.sort((a, b) => c[a].t - c[b].t)[0]];
+    try { localStorage.setItem(CKEY, JSON.stringify(c)); } catch (e) {}
+  }
+
+  /* ---------- main load ---------- */
+  async function go(place) {
+    current = { ...place, lat: +(+place.lat).toFixed(4), lon: +(+place.lon).toFixed(4) };
+    try { localStorage.setItem(LKEY, JSON.stringify(current)); } catch (e) {}
+    drawChips();
+    $("status").textContent = `Loading NWS forecast for ${current.name}…`;
+    let pts;
+    try {
+      pts = await getJSON(`${NWS}/points/${current.lat},${current.lon}`);
+    } catch (err) {
+      const snap = loadCache()[cacheKey(current)];
+      if (err.status !== 404 && snap) { render(snap, true); return; }
+      $("stale-note").style.display = "none";
+      $("status").innerHTML = err.status === 404
+        ? `<span style="color:var(--red)">The National Weather Service has no forecast for that spot. NWS covers the US and its territories only.</span>`
+        : `<span style="color:var(--red)">Could not reach the National Weather Service (${esc(err.message)}), and there's no saved copy for this spot. Check your connection and pick the place again.</span>`;
+      return;
+    }
+    const p = pts.properties;
+    const rel = p.relativeLocation && p.relativeLocation.properties;
+    const office = p.gridId || p.cwa;
+    const [fc, grid, alerts, stations] = await Promise.allSettled([
+      getJSON(p.forecast), getJSON(p.forecastGridData),
+      getJSON(`${NWS}/alerts/active?point=${current.lat},${current.lon}`),
+      getJSON(p.observationStations)
+    ]);
+    let obs = null, stn = null;
+    if (stations.status === "fulfilled" && stations.value.features.length) {
+      for (const s of stations.value.features.slice(0, 3)) {
+        try {
+          const o = await getJSON(`${s.id}/observations/latest`);
+          if (o.properties && o.properties.temperature && o.properties.temperature.value != null) { obs = o.properties; stn = s.properties; break; }
+        } catch (e) {}
+      }
+    }
+    const g = grid.status === "fulfilled" ? grid.value.properties : null;
+    const snap = {
+      t: Date.now(), place: current,
+      meta: `${rel ? `near ${rel.city}, ${rel.state} · ` : ""}NWS office ${office}`, office,
+      grid: g && { windSpeed: g.windSpeed, windGust: g.windGust, windDirection: g.windDirection,
+                   probabilityOfPrecipitation: g.probabilityOfPrecipitation, temperature: g.temperature },
+      periods: fc.status === "fulfilled" ? fc.value.properties.periods.slice(0, 14) : null,
+      alerts: alerts.status === "fulfilled" ? alerts.value.features.map(a => ({
+        event: a.properties.event, ends: a.properties.ends || a.properties.expires,
+        headline: a.properties.headline, description: a.properties.description, instruction: a.properties.instruction
+      })) : [],
+      obs: obs && {
+        windSpeed: obs.windSpeed && obs.windSpeed.value, windGust: obs.windGust && obs.windGust.value,
+        windDirection: obs.windDirection && obs.windDirection.value,
+        tempC: obs.temperature.value, text: obs.textDescription, timestamp: obs.timestamp
+      },
+      stn: stn && { id: stn.stationIdentifier, name: stn.name }
+    };
+    storeSnap(current, snap);
+    render(snap, false);
+  }
+
+  function render(snap, stale) {
+    lastSnap = snap;
+    current = snap.place;
+    drawChips();
+    const note = $("stale-note");
+    if (stale) {
+      note.style.display = "";
+      note.textContent = "Offline or forecast service unreachable — showing data fetched " +
+        new Date(snap.t).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" }) +
+        ". Do NOT treat this as current conditions.";
+    } else note.style.display = "none";
+    $("now-title").textContent = "Right Now — " + snap.place.name;
+    $("place-meta").textContent = snap.meta;
+    drawAlerts(snap.alerts);
+    if (snap.grid) drawChart(snap.grid); else { $("chart").innerHTML = ""; $("readout").textContent = ""; $("chart-legend").style.display = "none"; }
+    if (snap.periods) drawDays(snap.periods);
+    else $("days").innerHTML = `<p class="err">The day-by-day forecast did not load. NWS sometimes needs a second try; pick the place again.</p>`;
+    drawLinks(snap.office);
+    drawNow(snap.obs, snap.stn);
+    $("status").textContent = stale
+      ? `Last successful update ${new Date(snap.t).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}.`
+      : `Updated ${new Date().toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}.`;
+  }
+
+  function drawAlerts(list) {
+    $("alerts").innerHTML = (list || []).map(x => {
+      const cls = /warning/i.test(x.event) ? "alert warning" : "alert";
+      return `<details class="${cls}"><summary>${esc(x.event)}${x.ends ? ` until ${esc(new Date(x.ends).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" }))}` : ""}</summary><p>${esc(x.headline || "")}\n\n${esc(x.description || "")}${x.instruction ? "\n\n" + esc(x.instruction) : ""}</p></details>`;
+    }).join("");
+  }
+
+  function arrowSVG(dir) {
+    const rot = dir == null ? 0 : dir + 180;
+    return `<svg class="arrow" viewBox="0 0 24 24" style="transform:rotate(${rot}deg)" aria-hidden="true"><path d="M12 2 L18 20 L12 15 L6 20 Z" fill="var(--orange)"/></svg>`;
+  }
+
+  function drawNow(o, s) {
+    if (!o) { $("now").innerHTML = `<div class="cell"><div class="lab">Observation</div><div class="sub">No nearby station reported recently — see the wind chart and forecast below.</div></div>`; return; }
+    const ws = o.windSpeed, wg = o.windGust, wd = o.windDirection;
+    const t = cToF(o.tempC);
+    const age = Math.round((Date.now() - Date.parse(o.timestamp)) / 60000);
+    const alt = unit === "kn" ? "mph" : "kn";
+    const pri = v => v == null ? null : v * (unit === "kn" ? KT : MPH);
+    const sec = v => v == null ? null : v * (unit === "kn" ? MPH : KT);
+    $("now").innerHTML = `
+      <div class="cell"><div class="lab">Wind</div><div class="big">${arrowSVG(wd)} ${r(pri(ws))} <span style="font-size:1rem">${unit}</span></div><div class="sub">${r(sec(ws))} ${alt} from ${compass(wd)}${wd != null ? ` (${r(wd)}&deg;)` : ""}</div></div>
+      <div class="cell"><div class="lab">Gusts</div><div class="big">${wg == null ? "--" : r(pri(wg))} <span style="font-size:1rem">${unit}</span></div><div class="sub">${wg == null ? "None reported" : r(sec(wg)) + " " + alt}</div></div>
+      <div class="cell"><div class="lab">Air</div><div class="big">${r(t)}&deg;F</div><div class="sub">${esc(o.text || "")}</div></div>
+      <div class="cell"><div class="lab">Station</div><div class="big" style="font-size:1.3rem">${esc(s ? s.id : "--")}</div><div class="sub">${esc(s ? s.name : "")} · ${age < 90 ? age + " min ago" : Math.round(age / 60) + " hr ago"}</div></div>`;
+  }
+
+  function drawChart(g) {
+    lastGrid = g;
+    const long = span > 96;
+    const speed = expand(g.windSpeed), gust = expand(g.windGust), dir = expand(g.windDirection),
+          pop = expand(g.probabilityOfPrecipitation), temp = expand(g.temperature);
+    const start = Math.floor(Date.now() / 3600e3) * 3600e3;
+    hours = [];
+    for (let i = 0; i < span; i++) {
+      const t = start + i * 3600e3;
+      if (!speed.has(t)) continue;
+      hours.push({ t, s: speed.get(t) * KT, g: gust.has(t) && gust.get(t) != null ? gust.get(t) * KT : null, d: dir.get(t), p: pop.get(t), f: cToF(temp.get(t)) });
+    }
+    const svg = $("chart");
+    if (!hours.length) { svg.innerHTML = ""; $("chart-legend").style.display = "none"; return; }
+    const uf = unit === "mph" ? 1.15078 : 1;   // knots -> display unit
+    const W = 760, H = 300, L = 40, R = 70, T = 14, B = 74;
+    const pw = W - L - R, ph = H - T - B;
+    const maxV = Math.max(unit === "mph" ? 25 : 20, Math.ceil(Math.max(...hours.map(h => Math.max(h.s, h.g || 0))) * uf / 5) * 5 + 2);
+    const x = i => L + (i / Math.max(1, hours.length - 1)) * pw;
+    const y = v => T + ph - (v / maxV) * ph;
+    const bands = [[0, 6.5, "F0–2 light air"], [6.5, 10.5, "F3 gentle"], [10.5, 16.5, "F4 moderate"], [16.5, 21.5, "F5 fresh"], [21.5, 27.5, "F6 strong"], [27.5, 99, "F7+ near gale"]];
+    let s = "";
+    bands.forEach(([a0, b0, lab], i) => {
+      const a = a0 * uf, b = b0 * uf;
+      if (a >= maxV) return;
+      const top = y(Math.min(b, maxV)), bot = y(a);
+      if (i % 2 === 1) s += `<rect x="${L}" y="${top}" width="${pw}" height="${bot - top}" fill="var(--band)"/>`;
+      s += `<text x="${L + pw + 6}" y="${(top + bot) / 2 + 4}" font-size="11" font-family="Arial" fill="#8aa">${lab}</text>`;
+    });
+    for (let v = 0; v <= maxV; v += 5) s += `<line x1="${L}" x2="${L + pw}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${L - 6}" y="${y(v) + 4}" font-size="11" font-family="Arial" text-anchor="end" fill="#8aa">${v}</text>`;
+    s += `<text x="${L - 6}" y="${T - 2}" font-size="10" font-family="Arial" text-anchor="end" fill="#8aa">${unit}</text>`;
+    hours.forEach((h, i) => {
+      const d = new Date(h.t);
+      if (d.getHours() === 0 || i === 0) {
+        s += `<line x1="${x(i)}" x2="${x(i)}" y1="${T}" y2="${T + ph}" stroke="#9ab" stroke-width="${i === 0 ? 0 : 1}" stroke-dasharray="3 3"/>`;
+        s += `<text x="${x(i) + 4}" y="${T + ph + 16}" font-size="12" font-weight="bold" font-family="Arial" fill="#445">${d.toLocaleDateString([], { weekday: "short" })}</text>`;
+      } else if (d.getHours() === 12 && !long) {
+        s += `<text x="${x(i)}" y="${T + ph + 16}" font-size="11" font-family="Arial" text-anchor="middle" fill="#8aa">noon</text>`;
+      }
+    });
+    const gp = hours.map((h, i) => h.g == null ? null : `${x(i)},${y(h.g * uf)}`).filter(Boolean);
+    if (gp.length > 1) s += `<polyline points="${gp.join(" ")}" fill="none" stroke="var(--gustc)" stroke-width="2" stroke-dasharray="4 3"/>`;
+    s += `<path d="M${x(0)},${y(0)} L${hours.map((h, i) => `${x(i)},${y(h.s * uf)}`).join(" L")} L${x(hours.length - 1)},${y(0)} Z" fill="var(--navy)" opacity=".12"/>`;
+    s += `<polyline points="${hours.map((h, i) => `${x(i)},${y(h.s * uf)}`).join(" ")}" fill="none" stroke="var(--navy)" stroke-width="2.5" stroke-linejoin="round"/>`;
+    const ay = T + ph + 34, astep = long ? 6 : 3;
+    hours.forEach((h, i) => {
+      if (i % astep || h.d == null) return;
+      s += `<g transform="translate(${x(i)},${ay}) rotate(${h.d + 180})"><path d="M0 -7 L4 6 L0 3 L-4 6 Z" fill="#445" opacity=".75"/></g>`;
+    });
+    const py = T + ph + 46, pH = 22, bw = long ? 3 : 5;
+    hours.forEach((h, i) => {
+      if (!h.p) return;
+      const bh = (h.p / 100) * pH;
+      s += `<rect x="${x(i) - bw / 2}" y="${py + pH - bh}" width="${bw}" height="${bh}" fill="var(--orange)" opacity=".7"/>`;
+    });
+    s += `<text x="${L - 6}" y="${py + pH}" font-size="10" font-family="Arial" text-anchor="end" fill="#8aa">rain</text>`;
+    s += `<line id="cursor" x1="${x(0)}" x2="${x(0)}" y1="${T}" y2="${T + ph}" stroke="var(--red)" stroke-width="1.5"/><circle id="dot" cx="${x(0)}" cy="${y(hours[0].s * uf)}" r="4" fill="var(--red)"/>`;
+    s += `<rect id="hit" x="${L}" y="${T}" width="${pw}" height="${H - T}" fill="transparent"/>`;
+    svg.innerHTML = s;
+    const pick = i => {
+      i = Math.max(0, Math.min(hours.length - 1, i));
+      const h = hours[i];
+      svg.querySelector("#cursor").setAttribute("x1", x(i)); svg.querySelector("#cursor").setAttribute("x2", x(i));
+      svg.querySelector("#dot").setAttribute("cx", x(i)); svg.querySelector("#dot").setAttribute("cy", y(h.s * uf));
+      const when = new Date(h.t).toLocaleString([], { weekday: "short", hour: "numeric" });
+      const alt = unit === "kn" ? "mph" : "kn";
+      const af = unit === "kn" ? 1.15078 : 1;   // knots -> alt unit
+      $("readout").innerHTML = `<b>${esc(when)}</b> · ${r(h.s * uf)} ${unit}${h.g != null ? `, gusts ${r(h.g * uf)}` : ""} from ${compass(h.d)} · ${r(h.s * af)} ${alt} · ${r(h.f)}&deg;F · ${r(h.p || 0)}% rain`;
+    };
+    svg.querySelector("#hit").addEventListener("pointermove", e => {
+      const box = svg.getBoundingClientRect();
+      const vx = (e.clientX - box.left) / box.width * W;
+      pick(Math.round((vx - L) / pw * (hours.length - 1)));
+    });
+    pick(0);
+    $("chart-legend").style.display = "flex";
+  }
+  document.querySelectorAll("#span-seg button").forEach(b => b.onclick = () => {
+    document.querySelectorAll("#span-seg button").forEach(x => x.classList.toggle("on", x === b));
+    span = +b.dataset.span;
+    $("chart-title").childNodes[0].textContent = span > 96 ? "Wind, Next 7 Days " : "Wind, Next 72 Hours ";
+    if (lastGrid) drawChart(lastGrid);
+  });
+  function applyUnit() {
+    document.querySelectorAll("#unit-seg button").forEach(x => x.classList.toggle("on", x.dataset.u === unit));
+    $("leg-w").textContent = `sustained wind (${unit})`;
+    $("leg-g").textContent = `gusts (${unit})`;
+  }
+  document.querySelectorAll("#unit-seg button").forEach(b => b.onclick = () => {
+    unit = b.dataset.u;
+    try { localStorage.setItem("clsa-weather-unit", unit); } catch (e) {}
+    applyUnit();
+    if (lastGrid) drawChart(lastGrid);
+    if (lastSnap) drawNow(lastSnap.obs, lastSnap.stn);
+  });
+  applyUnit();
+
+  function drawDays(periods) {
+    $("days").innerHTML = periods.map(p => {
+      const pop = p.probabilityOfPrecipitation && p.probabilityOfPrecipitation.value;
+      return `<article class="day">
+        <div class="top"><span class="name">${esc(p.name)}</span><span class="t">${r(p.temperature)}<small>&deg;${esc(p.temperatureUnit)}</small></span></div>
+        <div>${esc(p.shortForecast)}</div>
+        <div class="row"><span class="muted">Wind</span><span>${esc(p.windDirection || "")} ${esc(p.windSpeed || "")}</span></div>
+        <div class="row"><span class="muted">Rain chance</span><span>${pop == null ? "0" : r(pop)}%</span></div>
+        <details><summary>NWS forecaster text</summary>${esc(p.detailedForecast)}</details>
+      </article>`;
+    }).join("");
+  }
+
+  function drawLinks(office) {
+    if (!current) { $("links").innerHTML = ""; return; }
+    const lat = current.lat, lon = current.lon;
+    $("links").innerHTML = `
+      <a href="https://forecast.weather.gov/MapClick.php?lat=${lat}&lon=${lon}" target="_blank" rel="noopener">Full NWS forecast page</a>
+      <a href="https://forecast.weather.gov/MapClick.php?lat=${lat}&lon=${lon}&FcstType=graphical" target="_blank" rel="noopener">NWS hourly graph</a>
+      ${office ? `<a href="https://forecast.weather.gov/product.php?site=${esc(office)}&issuedby=${esc(office)}&product=AFD" target="_blank" rel="noopener">Forecaster discussion (${esc(office)})</a>` : ""}
+      <a href="https://www.nhc.noaa.gov" target="_blank" rel="noopener">National Hurricane Center</a>`;
+  }
+
+  /* ---------- start ---------- */
+  let first = null;
+  try { first = JSON.parse(localStorage.getItem(LKEY)); } catch (e) {}
+  drawChips();
+  go(first && first.lat ? first : saved[0] || PRESETS[0]);
+})();
+</script>
+<script>
+(function () {
+  const drawer = document.getElementById('drawer');
+  const scrim = document.getElementById('scrim');
+  const open = () => { drawer.classList.add('open'); scrim.classList.add('open'); };
+  const close = () => { drawer.classList.remove('open'); scrim.classList.remove('open'); };
+  document.getElementById('menuBtn').addEventListener('click', open);
+  document.getElementById('drawerClose').addEventListener('click', close);
+  scrim.addEventListener('click', close);
+  drawer.querySelectorAll('a[data-close]').forEach(a => a.addEventListener('click', close));
+})();
+</script>
+<script>if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");</script>
+</body>
+</html>

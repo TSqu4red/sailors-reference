@@ -1,7 +1,7 @@
 /* A Sailor's Guide to the Galaxy — offline service worker.
    Bump VERSION on deploys that should invalidate cached pages. */
-const VERSION = 'clsa-v5';
-const PRECACHE = ['/', '/index.html', '/learn.html', '/racecourse.html', '/scoring.html', '/rigging.html'];
+const VERSION = 'clsa-v6';
+const PRECACHE = ['/', '/index.html', '/learn.html', '/racecourse.html', '/scoring.html', '/weather.html', '/rigging.html'];
 
 self.addEventListener('install', e => {
   e.waitUntil(

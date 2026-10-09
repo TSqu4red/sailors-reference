@@ -4,6 +4,23 @@ Cross-device source of truth for what's built, what's next, and what's parked.
 
 ## Done
 
+- **Regatta Weather page** (October 2026) — `weather.html`, ported from the
+  standalone Lake Wind Board build and restyled to the site shell. Search any US
+  venue (Open-Meteo geocoding), type coordinates directly, or use device
+  location; live station conditions (nearest 3 stations tried), expandable NWS
+  alerts, a touch/hover-scrubbable wind chart in knots with Beaufort bands,
+  gusts, direction arrows and rain-chance bars (3-day default, 7-day toggle —
+  same horizon as the NWS lake forecast pages — and a persisted kn/mph unit
+  toggle that also drives the readout and Right Now cells), 14 day-by-day cards with
+  forecaster text, and deep links to NWS products — all from api.weather.gov,
+  no API key, no backend. Saved venues + last view in `localStorage`
+  (`clsa-weather-places`, `clsa-weather-last`), defaults: Cowan Lake OH, Hoover
+  Reservoir OH, Lake Norman NC. Safety rule: live weather is never served from
+  the SW cache (sw.js only touches same-origin requests); on network failure
+  the last good snapshot (`clsa-weather-cache`) is shown behind a loud "stale —
+  do not treat as current" banner. Site is light-only, so the source's dark
+  mode was dropped deliberately. SW `VERSION` → `clsa-v6`.
+
 - **Infrastructure rename** (September 2026) — GitHub repo renamed
   `TSqu4red/clsa-learn-to-sail` → `TSqu4red/sailors-reference` (GitHub redirects
   the old repo URL; Vercel tracks the repo by ID so deploys are unaffected).
