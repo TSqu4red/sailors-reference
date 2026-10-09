@@ -80,6 +80,8 @@
   table.days td.per { font-weight: bold; color: var(--navy); }
   table.days td.per .sf { display: block; font-weight: normal; color: #556; font-size: 0.86rem; }
   table.days td.wind { white-space: nowrap; }
+  table.days td.wind .g { color: var(--red); font-size: 0.85rem; }
+  table.days tr.d-detail .stats { display: block; color: var(--navy); font-size: 0.85rem; margin-bottom: 4px; }
   table.days td.per .car { display: inline-block; width: 1em; color: var(--blue); transition: transform .15s; }
   table.days tr.open td.per .car { transform: rotate(90deg); }
   table.days td.tmp { font-weight: bold; color: var(--navy); white-space: nowrap; }
@@ -219,8 +221,8 @@
   let span = 72;          // chart range in hours: 72 or 168
   let lastGrid = null;    // last grid payload, for re-render on toggles
   let lastSnap = null;    // last rendered snapshot, for re-render on unit toggle
-  let unit = "kn";        // display unit: "kn" or "mph"
-  try { if (localStorage.getItem("clsa-weather-unit") === "mph") unit = "mph"; } catch (e) {}
+  let unit = "mph";       // display unit: "mph" (default) or "kn"
+  try { if (localStorage.getItem("clsa-weather-unit") === "kn") unit = "kn"; } catch (e) {}
 
   /* ---------- sailing-club lakes within ~500 miles of Cowan ---------- */
   const HOME = { lat: 39.385, lon: -83.905 };   // Cowan Lake
@@ -413,7 +415,8 @@
       t: Date.now(), place: current,
       meta: `${rel ? `near ${rel.city}, ${rel.state} · ` : ""}NWS office ${office}`, office,
       grid: g && { windSpeed: g.windSpeed, windGust: g.windGust, windDirection: g.windDirection,
-                   probabilityOfPrecipitation: g.probabilityOfPrecipitation, temperature: g.temperature },
+                   probabilityOfPrecipitation: g.probabilityOfPrecipitation, temperature: g.temperature,
+                   dewpoint: g.dewpoint, relativeHumidity: g.relativeHumidity },
       periods: fc.status === "fulfilled" ? fc.value.properties.periods.slice(0, 14) : null,
       alerts: alerts.status === "fulfilled" ? alerts.value.features.map(a => ({
         event: a.properties.event, ends: a.properties.ends || a.properties.expires,
@@ -445,7 +448,7 @@
     $("place-meta").textContent = snap.meta;
     drawAlerts(snap.alerts);
     if (snap.grid) drawChart(snap.grid); else { $("chart").innerHTML = ""; $("readout").textContent = ""; $("chart-legend").style.display = "none"; }
-    if (snap.periods) drawDays(snap.periods);
+    if (snap.periods) drawDays(snap.periods, snap.grid);
     else $("days").innerHTML = `<p class="err">The day-by-day forecast did not load. NWS sometimes needs a second try; pick the place again.</p>`;
     drawLinks(snap.office);
     drawNow(snap.obs, snap.stn);
@@ -578,17 +581,48 @@
   });
   applyUnit();
 
-  function drawDays(periods) {
+  function drawDays(periods, grid) {
+    const gustMap = grid ? expand(grid.windGust) : new Map();
+    const dewMap = grid ? expand(grid.dewpoint) : new Map();
+    const rhMap = grid ? expand(grid.relativeHumidity) : new Map();
+    function rangeOver(map, p) {
+      const t0 = Date.parse(p.startTime), t1 = Date.parse(p.endTime);
+      if (!t0 || !t1) return null;
+      let lo = null, hi = null;
+      for (let t = t0; t < t1; t += 3600e3) {
+        const v = map.get(t);
+        if (v == null) continue;
+        if (lo == null || v < lo) lo = v;
+        if (hi == null || v > hi) hi = v;
+      }
+      return lo == null ? null : [lo, hi];
+    }
+    function periodGustMph(p) {
+      const g = rangeOver(gustMap, p);
+      return g == null ? null : g[1] * MPH;
+    }
     const rows = periods.map((p, i) => {
       const pop = p.probabilityOfPrecipitation && p.probabilityOfPrecipitation.value;
       const wind = String(p.windSpeed || "").replace(/ to /g, "–").replace(/ ?mph/, "");
-      return `<tr class="d-row" data-i="${i}" title="Tap for the full NWS forecaster text">
+      const windTop = (String(p.windSpeed || "").match(/\d+/g) || []).map(Number).pop() || 0;
+      const gust = periodGustMph(p);
+      const showGust = gust != null && Math.round(gust) > windTop + 2;
+      const dewR = rangeOver(dewMap, p);
+      const rhR = rangeOver(rhMap, p);
+      const fmtRange = (lo, hi, sfx) => r(lo) === r(hi) ? `${r(hi)}${sfx}` : `${r(lo)}–${r(hi)}${sfx}`;
+      const stats = [
+        gust != null ? `Gusts to ${r(gust)} mph` : null,
+        rhR ? `Humidity ${fmtRange(rhR[0], rhR[1], "%")}` : null,
+        dewR ? `Dewpoint ${fmtRange(cToF(dewR[0]), cToF(dewR[1]), "&deg;F")}` : null,
+        p.temperatureTrend ? `Temp ${esc(p.temperatureTrend)}` : null
+      ].filter(Boolean).join(" · ");
+      return `<tr class="d-row" data-i="${i}" title="Tap for the full NWS forecast for this period">
           <td class="per"><span class="car">&#9656;</span>${esc(p.name)}<span class="sf">${esc(p.shortForecast)}</span></td>
           <td class="tmp">${r(p.temperature)}&deg;${esc(p.temperatureUnit)}</td>
-          <td class="wind">${esc(p.windDirection || "")} ${esc(wind)}</td>
+          <td class="wind">${esc(p.windDirection || "")} ${esc(wind)}${showGust ? ` <span class="g">g&thinsp;${r(gust)}</span>` : ""}</td>
           <td>${pop == null ? "0" : r(pop)}%</td>
         </tr>
-        <tr class="d-detail" hidden><td colspan="4">${esc(p.detailedForecast)}</td></tr>`;
+        <tr class="d-detail" hidden><td colspan="4">${stats ? `<span class="stats">${stats}</span>` : ""}${esc(p.detailedForecast)}</td></tr>`;
     }).join("");
     $("days").innerHTML = `<div class="score-wrap"><table class="days">
       <tr><th>Period</th><th>Temp</th><th>Wind mph</th><th>Rain</th></tr>${rows}</table></div>`;
