@@ -35,6 +35,13 @@
   .results { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
   .results button { text-align: left; background: var(--sky); border: 1px solid #c5d8e8; border-radius: 6px; font-family: inherit; font-size: 0.95rem; padding: 7px 12px; cursor: pointer; }
   .results button:hover { background: #d6e6f2; }
+  details.lakes { margin-top: 10px; }
+  details.lakes summary { cursor: pointer; color: var(--blue); font-size: 0.95rem; }
+  .clubs { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 6px; margin-top: 10px; }
+  .clubs button { text-align: left; background: var(--sky); border: 1px solid #c5d8e8; border-radius: 6px; font-family: inherit; font-size: 0.92rem; padding: 7px 12px; cursor: pointer; }
+  .clubs button:hover { background: #d6e6f2; }
+  .clubs b { color: var(--navy); }
+  .clubs .sub { display: block; font-size: 0.82rem; color: #667; }
   .status { font-size: 0.9rem; color: #889; font-style: italic; margin-top: 6px; }
   /* right now */
   .now { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-top: 8px; }
@@ -143,6 +150,11 @@
   </form>
   <div class="results" id="results"></div>
   <div class="wx-controls" id="chips"></div>
+  <details class="lakes">
+    <summary>Browse sailing-club lakes within ~500 miles of Cowan</summary>
+    <div class="clubs" id="club-lakes"></div>
+    <p class="tie-note">A traveling-regatta shortlist: lakes with active sailing clubs, roughly a day's tow from Cowan. Distances are straight-line. Know one that's missing or defunct? Tell the webmaster.</p>
+  </details>
   <div class="status" id="status" aria-live="polite">Loading forecast&hellip;</div>
 </div>
 <div id="stale-note" class="stale" style="display:none"></div>
@@ -205,6 +217,60 @@
   let lastSnap = null;    // last rendered snapshot, for re-render on unit toggle
   let unit = "kn";        // display unit: "kn" or "mph"
   try { if (localStorage.getItem("clsa-weather-unit") === "mph") unit = "mph"; } catch (e) {}
+
+  /* ---------- sailing-club lakes within ~500 miles of Cowan ---------- */
+  const HOME = { lat: 39.385, lon: -83.905 };   // Cowan Lake
+  const LAKES = [
+    { n: "Caesar Creek Lake, OH", c: "Caesar Creek Sailing Association", lat: 39.50, lon: -84.06 },
+    { n: "Cave Run Lake, KY", c: "Cave Run Sailing Association", lat: 38.07, lon: -83.52 },
+    { n: "Alum Creek Lake, OH", c: "Alum Creek Sailing Association", lat: 40.19, lon: -82.97 },
+    { n: "Buckeye Lake, OH", c: "Buckeye Lake Yacht Club", lat: 39.93, lon: -82.47 },
+    { n: "Indian Lake, OH", c: "Indian Lake Yacht Club", lat: 40.49, lon: -83.88 },
+    { n: "Grand Lake St. Marys, OH", c: "Grand Lake Sailing Club", lat: 40.53, lon: -84.47 },
+    { n: "Eagle Creek Reservoir, IN", c: "Eagle Creek Sailing Club (Indianapolis)", lat: 39.87, lon: -86.30 },
+    { n: "Geist Reservoir, IN", c: "Indianapolis Sailing Club", lat: 39.93, lon: -85.94 },
+    { n: "Lake Monroe, IN", c: "Bloomington Yacht Club", lat: 39.06, lon: -86.43 },
+    { n: "Atwood Lake, OH", c: "Atwood Yacht Club", lat: 40.53, lon: -81.28 },
+    { n: "Berlin Lake, OH", c: "Berlin Yacht Club", lat: 41.03, lon: -81.00 },
+    { n: "Sandusky Bay (Lake Erie), OH", c: "Sandusky Sailing Club", lat: 41.46, lon: -82.72 },
+    { n: "Cleveland (Lake Erie), OH", c: "Edgewater Yacht Club", lat: 41.49, lon: -81.74 },
+    { n: "Lake Arthur, PA", c: "Moraine Sailing Club", lat: 40.95, lon: -80.10 },
+    { n: "Pymatuning Lake, PA", c: "Pymatuning Yacht Club", lat: 41.60, lon: -80.48 },
+    { n: "Presque Isle Bay (Lake Erie), PA", c: "Erie Yacht Club", lat: 42.14, lon: -80.13 },
+    { n: "Chautauqua Lake, NY", c: "Chautauqua Lake Yacht Club", lat: 42.17, lon: -79.42 },
+    { n: "Lake St. Clair, MI", c: "Crescent Sail Yacht Club (Grosse Pointe)", lat: 42.43, lon: -82.87 },
+    { n: "Gull Lake, MI", c: "Gull Lake Yacht Club", lat: 42.40, lon: -85.40 },
+    { n: "Lake Michigan — Michigan City, IN", c: "Michigan City Yacht Club", lat: 41.73, lon: -86.90 },
+    { n: "Lake Michigan — Chicago, IL", c: "Chicago Yacht Club", lat: 41.89, lon: -87.61 },
+    { n: "Lake Geneva, WI", c: "Lake Geneva Yacht Club", lat: 42.56, lon: -88.44 },
+    { n: "Carlyle Lake, IL", c: "Carlyle Sailing Association", lat: 38.64, lon: -89.30 },
+    { n: "Kentucky Lake, KY", c: "Kentucky Lake Sailing Club", lat: 36.93, lon: -88.13 },
+    { n: "Percy Priest Lake, TN", c: "Percy Priest Yacht Club (Nashville)", lat: 36.09, lon: -86.55 },
+    { n: "Chickamauga Lake, TN", c: "Privateer Yacht Club (Chattanooga)", lat: 35.23, lon: -85.17 },
+    { n: "Fort Loudoun Lake, TN", c: "Concord Yacht Club (Knoxville)", lat: 35.88, lon: -84.20 },
+    { n: "Lake Lanier, GA", c: "Lake Lanier Sailing Club", lat: 34.21, lon: -83.95 },
+    { n: "Lake Norman, NC", c: "Lake Norman Yacht Club", lat: 35.55, lon: -80.93 },
+    { n: "Annapolis (Chesapeake Bay), MD", c: "Severn Sailing Association", lat: 38.97, lon: -76.49 }
+  ];
+  function milesFromHome(lat, lon) {
+    const R = 3958.8, toR = Math.PI / 180;
+    const dLat = (lat - HOME.lat) * toR, dLon = (lon - HOME.lon) * toR;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(HOME.lat * toR) * Math.cos(lat * toR) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+  }
+  function drawLakes() {
+    const list = LAKES.map(l => ({ ...l, mi: milesFromHome(l.lat, l.lon) }))
+      .filter(l => l.mi <= 500).sort((a, b) => a.mi - b.mi);
+    const box = $("club-lakes");
+    box.innerHTML = "";
+    list.forEach(l => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.innerHTML = `<b>${esc(l.n)}</b><span class="sub">${esc(l.c)} · &approx;${Math.round(l.mi)} mi</span>`;
+      b.onclick = () => go({ name: l.n, lat: l.lat, lon: l.lon });
+      box.appendChild(b);
+    });
+  }
 
   /* ---------- saved places ---------- */
   function loadSaved() {
@@ -535,6 +601,7 @@
   let first = null;
   try { first = JSON.parse(localStorage.getItem(LKEY)); } catch (e) {}
   drawChips();
+  drawLakes();
   go(first && first.lat ? first : saved[0] || PRESETS[0]);
 })();
 </script>

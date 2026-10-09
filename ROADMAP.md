@@ -4,6 +4,14 @@ Cross-device source of truth for what's built, what's next, and what's parked.
 
 ## Done
 
+- **Club-lakes browser on Regatta Weather** (October 2026) — a curated,
+  collapsible list of ~30 lakes with active sailing clubs within ~500 miles of
+  Cowan, sorted by straight-line distance (computed at runtime from the HOME
+  constant in `weather.html`), one tap to load a venue's forecast. Compiled from
+  general knowledge of the Midwest/Southeast one-design circuit — club names and
+  coordinates are approximate; prune/confirm against the fleets' own circuits.
+  Search still covers anywhere the list doesn't. SW `VERSION` → `clsa-v7`.
+
 - **Regatta Weather page** (October 2026) — `weather.html`, ported from the
   standalone Lake Wind Board build and restyled to the site shell. Search any US
   venue (Open-Meteo geocoding), type coordinates directly, or use device
