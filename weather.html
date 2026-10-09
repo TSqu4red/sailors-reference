@@ -35,6 +35,13 @@
   .results { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
   .results button { text-align: left; background: var(--sky); border: 1px solid #c5d8e8; border-radius: 6px; font-family: inherit; font-size: 0.95rem; padding: 7px 12px; cursor: pointer; }
   .results button:hover { background: #d6e6f2; }
+  details.lakes { margin-top: 10px; }
+  details.lakes summary { cursor: pointer; color: var(--blue); font-size: 0.95rem; }
+  .clubs { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 6px; margin-top: 10px; }
+  .clubs button { text-align: left; background: var(--sky); border: 1px solid #c5d8e8; border-radius: 6px; font-family: inherit; font-size: 0.92rem; padding: 7px 12px; cursor: pointer; }
+  .clubs button:hover { background: #d6e6f2; }
+  .clubs b { color: var(--navy); }
+  .clubs .sub { display: block; font-size: 0.82rem; color: #667; }
   .status { font-size: 0.9rem; color: #889; font-style: italic; margin-top: 6px; }
   /* right now */
   .now { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-top: 8px; }
@@ -63,16 +70,22 @@
   svg.chart { display: block; width: 100%; min-width: 620px; height: auto; touch-action: pan-y; }
   .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 0.85rem; color: #445; margin-top: 8px; }
   .legend i { display: inline-block; width: 18px; height: 3px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
-  /* day cards */
-  .days { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin-top: 8px; }
-  .day { background: var(--sky); border: 1px solid #c5d8e8; border-radius: 8px; padding: 12px 14px; display: grid; gap: 6px; align-content: start; min-width: 0; }
-  .day .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-  .day .name { font-weight: bold; color: var(--navy); font-size: 1.05rem; }
-  .day .t { font-size: 1.4rem; font-weight: bold; color: var(--navy); }
-  .day .t small { font-size: 0.95rem; color: #667; font-weight: normal; }
-  .day .row { font-size: 0.9rem; display: flex; justify-content: space-between; gap: 8px; }
-  .day details { font-size: 0.88rem; color: #556; }
-  .day summary { cursor: pointer; color: var(--blue); }
+  /* day table */
+  .score-wrap { overflow-x: auto; }
+  table.days { border-collapse: collapse; width: 100%; font-size: 0.92rem; margin-top: 8px; }
+  table.days th, table.days td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top; }
+  table.days th { background: var(--sky); color: var(--navy); }
+  table.days tr.d-row { cursor: pointer; }
+  table.days tr.d-row:hover td { background: #f4f9fc; }
+  table.days td.per { font-weight: bold; color: var(--navy); }
+  table.days td.per .sf { display: block; font-weight: normal; color: #556; font-size: 0.86rem; }
+  table.days td.wind { white-space: nowrap; }
+  table.days td.wind .g { color: var(--red); font-size: 0.85rem; }
+  table.days tr.d-detail .stats { display: block; color: var(--navy); font-size: 0.85rem; margin-bottom: 4px; }
+  table.days td.per .car { display: inline-block; width: 1em; color: var(--blue); transition: transform .15s; }
+  table.days tr.open td.per .car { transform: rotate(90deg); }
+  table.days td.tmp { font-weight: bold; color: var(--navy); white-space: nowrap; }
+  table.days tr.d-detail td { color: #556; font-size: 0.88rem; background: #fbfcfd; }
   .links { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 0.92rem; }
   .links a { color: var(--blue); }
   /* mobile app shell */
@@ -143,6 +156,11 @@
   </form>
   <div class="results" id="results"></div>
   <div class="wx-controls" id="chips"></div>
+  <details class="lakes">
+    <summary>Browse sailing-club lakes within ~500 miles of Cowan</summary>
+    <div class="clubs" id="club-lakes"></div>
+    <p class="tie-note">A traveling-regatta shortlist: lakes with active sailing clubs, roughly a day's tow from Cowan. Distances are straight-line. Know one that's missing or defunct? Tell the webmaster.</p>
+  </details>
   <div class="status" id="status" aria-live="polite">Loading forecast&hellip;</div>
 </div>
 <div id="stale-note" class="stale" style="display:none"></div>
@@ -167,7 +185,7 @@
 </div>
 <div class="card" id="sec-days">
   <h2>Day by Day</h2>
-  <div class="days" id="days"></div>
+  <div id="days"></div>
   <div class="links" id="links" style="margin-top:14px"></div>
   <p class="tie-note">Forecasts: National Weather Service (api.weather.gov) · search: Open-Meteo geocoding · times in your local time. Always check conditions on the water — forecasts are guidance, not gospel.</p>
 </div>
@@ -203,8 +221,62 @@
   let span = 72;          // chart range in hours: 72 or 168
   let lastGrid = null;    // last grid payload, for re-render on toggles
   let lastSnap = null;    // last rendered snapshot, for re-render on unit toggle
-  let unit = "kn";        // display unit: "kn" or "mph"
-  try { if (localStorage.getItem("clsa-weather-unit") === "mph") unit = "mph"; } catch (e) {}
+  let unit = "mph";       // display unit: "mph" (default) or "kn"
+  try { if (localStorage.getItem("clsa-weather-unit") === "kn") unit = "kn"; } catch (e) {}
+
+  /* ---------- sailing-club lakes within ~500 miles of Cowan ---------- */
+  const HOME = { lat: 39.385, lon: -83.905 };   // Cowan Lake
+  const LAKES = [
+    { n: "Caesar Creek Lake, OH", c: "Caesar Creek Sailing Association", lat: 39.50, lon: -84.06 },
+    { n: "Cave Run Lake, KY", c: "Cave Run Sailing Association", lat: 38.07, lon: -83.52 },
+    { n: "Alum Creek Lake, OH", c: "Alum Creek Sailing Association", lat: 40.19, lon: -82.97 },
+    { n: "Buckeye Lake, OH", c: "Buckeye Lake Yacht Club", lat: 39.93, lon: -82.47 },
+    { n: "Indian Lake, OH", c: "Indian Lake Yacht Club", lat: 40.49, lon: -83.88 },
+    { n: "Grand Lake St. Marys, OH", c: "Grand Lake Sailing Club", lat: 40.53, lon: -84.47 },
+    { n: "Eagle Creek Reservoir, IN", c: "Eagle Creek Sailing Club (Indianapolis)", lat: 39.87, lon: -86.30 },
+    { n: "Geist Reservoir, IN", c: "Indianapolis Sailing Club", lat: 39.93, lon: -85.94 },
+    { n: "Lake Monroe, IN", c: "Bloomington Yacht Club", lat: 39.06, lon: -86.43 },
+    { n: "Atwood Lake, OH", c: "Atwood Yacht Club", lat: 40.53, lon: -81.28 },
+    { n: "Berlin Lake, OH", c: "Berlin Yacht Club", lat: 41.03, lon: -81.00 },
+    { n: "Sandusky Bay (Lake Erie), OH", c: "Sandusky Sailing Club", lat: 41.46, lon: -82.72 },
+    { n: "Cleveland (Lake Erie), OH", c: "Edgewater Yacht Club", lat: 41.49, lon: -81.74 },
+    { n: "Lake Arthur, PA", c: "Moraine Sailing Club", lat: 40.95, lon: -80.10 },
+    { n: "Pymatuning Lake, PA", c: "Pymatuning Yacht Club", lat: 41.60, lon: -80.48 },
+    { n: "Presque Isle Bay (Lake Erie), PA", c: "Erie Yacht Club", lat: 42.14, lon: -80.13 },
+    { n: "Chautauqua Lake, NY", c: "Chautauqua Lake Yacht Club", lat: 42.17, lon: -79.42 },
+    { n: "Lake St. Clair, MI", c: "Crescent Sail Yacht Club (Grosse Pointe)", lat: 42.43, lon: -82.87 },
+    { n: "Gull Lake, MI", c: "Gull Lake Yacht Club", lat: 42.40, lon: -85.40 },
+    { n: "Lake Michigan — Michigan City, IN", c: "Michigan City Yacht Club", lat: 41.73, lon: -86.90 },
+    { n: "Lake Michigan — Chicago, IL", c: "Chicago Yacht Club", lat: 41.89, lon: -87.61 },
+    { n: "Lake Geneva, WI", c: "Lake Geneva Yacht Club", lat: 42.56, lon: -88.44 },
+    { n: "Carlyle Lake, IL", c: "Carlyle Sailing Association", lat: 38.64, lon: -89.30 },
+    { n: "Kentucky Lake, KY", c: "Kentucky Lake Sailing Club", lat: 36.93, lon: -88.13 },
+    { n: "Percy Priest Lake, TN", c: "Percy Priest Yacht Club (Nashville)", lat: 36.09, lon: -86.55 },
+    { n: "Chickamauga Lake, TN", c: "Privateer Yacht Club (Chattanooga)", lat: 35.23, lon: -85.17 },
+    { n: "Fort Loudoun Lake, TN", c: "Concord Yacht Club (Knoxville)", lat: 35.88, lon: -84.20 },
+    { n: "Lake Lanier, GA", c: "Lake Lanier Sailing Club", lat: 34.21, lon: -83.95 },
+    { n: "Lake Norman, NC", c: "Lake Norman Yacht Club", lat: 35.55, lon: -80.93 },
+    { n: "Annapolis (Chesapeake Bay), MD", c: "Severn Sailing Association", lat: 38.97, lon: -76.49 }
+  ];
+  function milesFromHome(lat, lon) {
+    const R = 3958.8, toR = Math.PI / 180;
+    const dLat = (lat - HOME.lat) * toR, dLon = (lon - HOME.lon) * toR;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(HOME.lat * toR) * Math.cos(lat * toR) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+  }
+  function drawLakes() {
+    const list = LAKES.map(l => ({ ...l, mi: milesFromHome(l.lat, l.lon) }))
+      .filter(l => l.mi <= 500).sort((a, b) => a.mi - b.mi);
+    const box = $("club-lakes");
+    box.innerHTML = "";
+    list.forEach(l => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.innerHTML = `<b>${esc(l.n)}</b><span class="sub">${esc(l.c)} · &approx;${Math.round(l.mi)} mi</span>`;
+      b.onclick = () => go({ name: l.n, lat: l.lat, lon: l.lon });
+      box.appendChild(b);
+    });
+  }
 
   /* ---------- saved places ---------- */
   function loadSaved() {
@@ -343,7 +415,8 @@
       t: Date.now(), place: current,
       meta: `${rel ? `near ${rel.city}, ${rel.state} · ` : ""}NWS office ${office}`, office,
       grid: g && { windSpeed: g.windSpeed, windGust: g.windGust, windDirection: g.windDirection,
-                   probabilityOfPrecipitation: g.probabilityOfPrecipitation, temperature: g.temperature },
+                   probabilityOfPrecipitation: g.probabilityOfPrecipitation, temperature: g.temperature,
+                   dewpoint: g.dewpoint, relativeHumidity: g.relativeHumidity },
       periods: fc.status === "fulfilled" ? fc.value.properties.periods.slice(0, 14) : null,
       alerts: alerts.status === "fulfilled" ? alerts.value.features.map(a => ({
         event: a.properties.event, ends: a.properties.ends || a.properties.expires,
@@ -375,7 +448,7 @@
     $("place-meta").textContent = snap.meta;
     drawAlerts(snap.alerts);
     if (snap.grid) drawChart(snap.grid); else { $("chart").innerHTML = ""; $("readout").textContent = ""; $("chart-legend").style.display = "none"; }
-    if (snap.periods) drawDays(snap.periods);
+    if (snap.periods) drawDays(snap.periods, snap.grid);
     else $("days").innerHTML = `<p class="err">The day-by-day forecast did not load. NWS sometimes needs a second try; pick the place again.</p>`;
     drawLinks(snap.office);
     drawNow(snap.obs, snap.stn);
@@ -508,25 +581,68 @@
   });
   applyUnit();
 
-  function drawDays(periods) {
-    $("days").innerHTML = periods.map(p => {
+  function drawDays(periods, grid) {
+    const gustMap = grid ? expand(grid.windGust) : new Map();
+    const dewMap = grid ? expand(grid.dewpoint) : new Map();
+    const rhMap = grid ? expand(grid.relativeHumidity) : new Map();
+    function rangeOver(map, p) {
+      const t0 = Date.parse(p.startTime), t1 = Date.parse(p.endTime);
+      if (!t0 || !t1) return null;
+      let lo = null, hi = null;
+      for (let t = t0; t < t1; t += 3600e3) {
+        const v = map.get(t);
+        if (v == null) continue;
+        if (lo == null || v < lo) lo = v;
+        if (hi == null || v > hi) hi = v;
+      }
+      return lo == null ? null : [lo, hi];
+    }
+    function periodGustMph(p) {
+      const g = rangeOver(gustMap, p);
+      return g == null ? null : g[1] * MPH;
+    }
+    const rows = periods.map((p, i) => {
       const pop = p.probabilityOfPrecipitation && p.probabilityOfPrecipitation.value;
-      return `<article class="day">
-        <div class="top"><span class="name">${esc(p.name)}</span><span class="t">${r(p.temperature)}<small>&deg;${esc(p.temperatureUnit)}</small></span></div>
-        <div>${esc(p.shortForecast)}</div>
-        <div class="row"><span class="muted">Wind</span><span>${esc(p.windDirection || "")} ${esc(p.windSpeed || "")}</span></div>
-        <div class="row"><span class="muted">Rain chance</span><span>${pop == null ? "0" : r(pop)}%</span></div>
-        <details><summary>NWS forecaster text</summary>${esc(p.detailedForecast)}</details>
-      </article>`;
+      const wind = String(p.windSpeed || "").replace(/ to /g, "–").replace(/ ?mph/, "");
+      const windTop = (String(p.windSpeed || "").match(/\d+/g) || []).map(Number).pop() || 0;
+      const gust = periodGustMph(p);
+      const showGust = gust != null && Math.round(gust) > windTop + 2;
+      const dewR = rangeOver(dewMap, p);
+      const rhR = rangeOver(rhMap, p);
+      const fmtRange = (lo, hi, sfx) => r(lo) === r(hi) ? `${r(hi)}${sfx}` : `${r(lo)}–${r(hi)}${sfx}`;
+      const stats = [
+        gust != null ? `Gusts to ${r(gust)} mph` : null,
+        rhR ? `Humidity ${fmtRange(rhR[0], rhR[1], "%")}` : null,
+        dewR ? `Dewpoint ${fmtRange(cToF(dewR[0]), cToF(dewR[1]), "&deg;F")}` : null,
+        p.temperatureTrend ? `Temp ${esc(p.temperatureTrend)}` : null
+      ].filter(Boolean).join(" · ");
+      return `<tr class="d-row" data-i="${i}" title="Tap for the full NWS forecast for this period">
+          <td class="per"><span class="car">&#9656;</span>${esc(p.name)}<span class="sf">${esc(p.shortForecast)}</span></td>
+          <td class="tmp">${r(p.temperature)}&deg;${esc(p.temperatureUnit)}</td>
+          <td class="wind">${esc(p.windDirection || "")} ${esc(wind)}${showGust ? ` <span class="g">g&thinsp;${r(gust)}</span>` : ""}</td>
+          <td>${pop == null ? "0" : r(pop)}%</td>
+        </tr>
+        <tr class="d-detail" hidden><td colspan="4">${stats ? `<span class="stats">${stats}</span>` : ""}${esc(p.detailedForecast)}</td></tr>`;
     }).join("");
+    $("days").innerHTML = `<div class="score-wrap"><table class="days">
+      <tr><th>Period</th><th>Temp</th><th>Wind mph</th><th>Rain</th></tr>${rows}</table></div>`;
+    $("days").querySelectorAll("tr.d-row").forEach(tr => tr.onclick = () => {
+      const det = tr.nextElementSibling;
+      det.hidden = !det.hidden;
+      tr.classList.toggle("open", !det.hidden);
+    });
   }
 
+  /* NWS offices known to publish a recreational lakes forecast page (most don't) */
+  const OFFICE_LAKES_PAGES = { GSP: "https://www.weather.gov/gsp/lakes" };
   function drawLinks(office) {
     if (!current) { $("links").innerHTML = ""; return; }
     const lat = current.lat, lon = current.lon;
+    const lakesUrl = office && OFFICE_LAKES_PAGES[office];
     $("links").innerHTML = `
       <a href="https://forecast.weather.gov/MapClick.php?lat=${lat}&lon=${lon}" target="_blank" rel="noopener">Full NWS forecast page</a>
       <a href="https://forecast.weather.gov/MapClick.php?lat=${lat}&lon=${lon}&FcstType=graphical" target="_blank" rel="noopener">NWS hourly graph</a>
+      ${lakesUrl ? `<a href="${lakesUrl}" target="_blank" rel="noopener">Recreational lake forecasts &amp; map (${esc(office)})</a>` : ""}
       ${office ? `<a href="https://forecast.weather.gov/product.php?site=${esc(office)}&issuedby=${esc(office)}&product=AFD" target="_blank" rel="noopener">Forecaster discussion (${esc(office)})</a>` : ""}
       <a href="https://www.nhc.noaa.gov" target="_blank" rel="noopener">National Hurricane Center</a>`;
   }
@@ -535,6 +651,7 @@
   let first = null;
   try { first = JSON.parse(localStorage.getItem(LKEY)); } catch (e) {}
   drawChips();
+  drawLakes();
   go(first && first.lat ? first : saved[0] || PRESETS[0]);
 })();
 </script>
