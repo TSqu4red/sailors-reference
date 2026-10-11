@@ -180,11 +180,11 @@
     <h2 id="chart-title">Wind, Next 72 Hours <span class="seg" id="span-seg"><button data-span="72" class="on">3 days</button><button data-span="168">7 days</button></span> <span class="seg" id="unit-seg"><button data-u="kn" class="on">kn</button><button data-u="mph">mph</button></span></h2>
     <div class="readout" id="readout"></div>
   </div>
-  <div class="chart-box"><svg class="chart" id="chart" viewBox="0 0 760 322" role="img" aria-label="Hourly wind speed and gust forecast"></svg></div>
+  <div class="chart-box"><svg class="chart" id="chart" viewBox="0 0 760 504" role="img" aria-label="Hourly wind speed, gust and rain chance forecast"></svg></div>
   <div class="legend" id="chart-legend" style="display:none">
     <span><i style="background:var(--navy)"></i><span id="leg-w">sustained wind (kn)</span></span>
     <span><i style="background:var(--gustc)"></i><span id="leg-g">gusts (kn)</span></span>
-    <span><i style="background:var(--orange);height:8px;width:8px"></i>chance of rain</span>
+    <span><i style="background:var(--orange);height:8px;width:8px"></i>chance of rain (bottom pane, 0&ndash;100%)</span>
     <span>bands are Beaufort forces &middot; arrows point the way the wind blows &middot; swipe to pan &middot; tap (or hover) an hour to read it</span>
   </div>
 </div>
@@ -576,7 +576,7 @@
     const svg = $("chart");
     if (!hours.length) { svg.innerHTML = ""; $("chart-legend").style.display = "none"; return; }
     const uf = unit === "mph" ? 1.15078 : 1;   // knots -> display unit
-    const W = 760, H = 322, L = 40, R = 70, T = 14, B = 96;
+    const W = 760, H = 504, L = 40, R = 70, T = 14, B = 278;
     const pw = W - L - R, ph = H - T - B;
     const maxV = Math.max(unit === "mph" ? 25 : 20, Math.ceil(Math.max(...hours.map(h => Math.max(h.s, h.g || 0))) * uf / 5) * 5 + 2);
     const x = i => L + (i / Math.max(1, hours.length - 1)) * pw;
@@ -614,18 +614,25 @@
       if (i % astep || h.d == null) return;
       s += `<g transform="translate(${x(i)},${ay}) rotate(${h.d + 180})"><path d="M0 -7 L4 6 L0 3 L-4 6 Z" fill="#445" opacity=".75"/></g>`;
     });
-    // rain pane, volume-strip style: taller bars with a baseline so it reads at a glance
-    const py = T + ph + 46, pH = 44, bw = long ? 3 : 5;
-    s += `<line x1="${L}" x2="${L + pw}" y1="${py + pH}" y2="${py + pH}" stroke="var(--line)" stroke-width="1"/>`;
-    s += `<line x1="${L}" x2="${L + pw}" y1="${py + pH / 2}" y2="${py + pH / 2}" stroke="var(--line)" stroke-width="1" stroke-dasharray="2 4"/>`;
+    // rain pane: a full second pane, volume style — chance of rain 0–100%
+    const py = T + ph + 46, pH = 220, bw = long ? 3 : 5;
+    for (const pc of [0, 25, 50, 75, 100]) {
+      const gy = py + pH * (1 - pc / 100);
+      s += `<line x1="${L}" x2="${L + pw}" y1="${gy}" y2="${gy}" stroke="var(--line)" stroke-width="1"${pc % 50 ? ' stroke-dasharray="2 4"' : ""}/>`;
+      if (pc % 50 === 0) s += `<text x="${L - 6}" y="${gy + 4}" font-size="11" font-family="Arial" text-anchor="end" fill="#8aa">${pc}</text>`;
+    }
+    // midnight separators carry through the rain pane too
+    hours.forEach((h, i) => {
+      if (i > 0 && new Date(h.t).getHours() === 0)
+        s += `<line x1="${x(i)}" x2="${x(i)}" y1="${py}" y2="${py + pH}" stroke="#9ab" stroke-width="1" stroke-dasharray="3 3"/>`;
+    });
     hours.forEach((h, i) => {
       if (!h.p) return;
       const bh = (h.p / 100) * pH;
       s += `<rect x="${x(i) - bw / 2}" y="${py + pH - bh}" width="${bw}" height="${bh}" fill="var(--orange)" opacity=".8"/>`;
     });
-    s += `<text x="${L - 6}" y="${py + pH}" font-size="10" font-family="Arial" text-anchor="end" fill="#8aa">rain</text>`;
-    s += `<text x="${L - 6}" y="${py + pH / 2 + 3}" font-size="9" font-family="Arial" text-anchor="end" fill="#b8c4cf">50%</text>`;
-    s += `<line id="cursor" x1="${x(0)}" x2="${x(0)}" y1="${T}" y2="${T + ph}" stroke="var(--red)" stroke-width="1.5"/><circle id="dot" cx="${x(0)}" cy="${y(hours[0].s * uf)}" r="4" fill="var(--red)"/>`;
+    s += `<text x="${L - 28}" y="${py + pH / 2}" font-size="11" font-family="Arial" text-anchor="middle" fill="#667" transform="rotate(-90 ${L - 28} ${py + pH / 2})">rain %</text>`;
+    s += `<line id="cursor" x1="${x(0)}" x2="${x(0)}" y1="${T}" y2="${py + pH}" stroke="var(--red)" stroke-width="1.5" opacity=".85"/><circle id="dot" cx="${x(0)}" cy="${y(hours[0].s * uf)}" r="4" fill="var(--red)"/>`;
     s += `<rect id="hit" x="${L}" y="${T}" width="${pw}" height="${H - T}" fill="transparent"/>`;
     svg.innerHTML = s;
     const pick = i => {
