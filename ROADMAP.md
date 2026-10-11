@@ -10,8 +10,9 @@ Cross-device source of truth for what's built, what's next, and what's parked.
   reservoirs and rivers within ~35 miles via OpenStreetMap's Overpass API
   (relations only, so farm ponds stay out; endpoint fallbacks + 7-day
   localStorage cache 'clsa-near-cache' since public Overpass throttles), serving
-  paddlers/anglers/cruisers too; rain bars doubled in height with a 50%
-  reference line, volume-pane style. SW `VERSION` → `clsa-v9`.
+  paddlers/anglers/cruisers too; rain is now a full second pane under the wind
+  chart (0–100% with gridlines, 220 of 504 SVG units — 10× the original bars),
+  cursor runs through both panes. SW `VERSION` → `clsa-v10`.
 
 - **Club-lakes browser on Regatta Weather** (October 2026) — a curated,
   collapsible list of ~30 lakes with active sailing clubs within ~500 miles of
