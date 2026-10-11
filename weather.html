@@ -67,7 +67,7 @@
   .readout { font-size: 0.95rem; }
   .readout b { color: var(--navy); }
   .chart-box { overflow-x: auto; }
-  svg.chart { display: block; width: 100%; min-width: 620px; height: auto; touch-action: pan-y; }
+  svg.chart { display: block; width: 100%; min-width: 620px; height: auto; }
   .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 0.85rem; color: #445; margin-top: 8px; }
   .legend i { display: inline-block; width: 18px; height: 3px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
   /* day table */
@@ -180,7 +180,7 @@
     <span><i style="background:var(--navy)"></i><span id="leg-w">sustained wind (kn)</span></span>
     <span><i style="background:var(--gustc)"></i><span id="leg-g">gusts (kn)</span></span>
     <span><i style="background:var(--orange);height:8px;width:8px"></i>chance of rain</span>
-    <span>bands are Beaufort forces &middot; arrows point the way the wind blows &middot; touch or hover the chart to read any hour</span>
+    <span>bands are Beaufort forces &middot; arrows point the way the wind blows &middot; swipe to pan &middot; tap (or hover) an hour to read it</span>
   </div>
 </div>
 <div class="card" id="sec-days">
@@ -515,11 +515,15 @@
     });
     for (let v = 0; v <= maxV; v += 5) s += `<line x1="${L}" x2="${L + pw}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${L - 6}" y="${y(v) + 4}" font-size="11" font-family="Arial" text-anchor="end" fill="#8aa">${v}</text>`;
     s += `<text x="${L - 6}" y="${T - 2}" font-size="10" font-family="Arial" text-anchor="end" fill="#8aa">${unit}</text>`;
+    let lastLx = -99;
     hours.forEach((h, i) => {
       const d = new Date(h.t);
       if (d.getHours() === 0 || i === 0) {
         s += `<line x1="${x(i)}" x2="${x(i)}" y1="${T}" y2="${T + ph}" stroke="#9ab" stroke-width="${i === 0 ? 0 : 1}" stroke-dasharray="3 3"/>`;
-        s += `<text x="${x(i) + 4}" y="${T + ph + 16}" font-size="12" font-weight="bold" font-family="Arial" fill="#445">${d.toLocaleDateString([], { weekday: "short" })}</text>`;
+        if (x(i) - lastLx > 34) {
+          s += `<text x="${x(i) + 4}" y="${T + ph + 16}" font-size="12" font-weight="bold" font-family="Arial" fill="#445">${d.toLocaleDateString([], { weekday: "short" })}</text>`;
+          lastLx = x(i);
+        }
       } else if (d.getHours() === 12 && !long) {
         s += `<text x="${x(i)}" y="${T + ph + 16}" font-size="11" font-family="Arial" text-anchor="middle" fill="#8aa">noon</text>`;
       }
@@ -553,11 +557,16 @@
       const af = unit === "kn" ? 1.15078 : 1;   // knots -> alt unit
       $("readout").innerHTML = `<b>${esc(when)}</b> · ${r(h.s * uf)} ${unit}${h.g != null ? `, gusts ${r(h.g * uf)}` : ""} from ${compass(h.d)} · ${r(h.s * af)} ${alt} · ${r(h.f)}&deg;F · ${r(h.p || 0)}% rain`;
     };
-    svg.querySelector("#hit").addEventListener("pointermove", e => {
+    const hit = svg.querySelector("#hit");
+    const pickAt = e => {
       const box = svg.getBoundingClientRect();
       const vx = (e.clientX - box.left) / box.width * W;
       pick(Math.round((vx - L) / pw * (hours.length - 1)));
-    });
+    };
+    // mouse: hover scrubs. touch: a TAP picks the hour, so a sideways swipe
+    // still pans the scrolling chart instead of dragging the cursor.
+    hit.addEventListener("pointermove", e => { if (e.pointerType === "mouse") pickAt(e); });
+    hit.addEventListener("click", pickAt);
     pick(0);
     $("chart-legend").style.display = "flex";
   }
